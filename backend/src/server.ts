@@ -6,6 +6,8 @@ import { Server } from 'socket.io';
 import connectDB from './config/database';
 import authRoutes from './routes/authRoutes'; 
 import restaurantRoutes from './routes/restaurantRoutes';
+import menuRoutes from './routes/menuRoutes';
+
 
 
 const app = express();
@@ -39,6 +41,7 @@ app.get('/health', (req, res) => {
 
 app.use('/api/auth', authRoutes);
 app.use('/api/restaurants', restaurantRoutes);
+app.use('/api/menu', menuRoutes);
 
 
 
