@@ -4,7 +4,9 @@ import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import connectDB from './config/database';
-import authRoutes from './routes/authRoutes';  
+import authRoutes from './routes/authRoutes'; 
+import restaurantRoutes from './routes/restaurantRoutes';
+
 
 const app = express();
 const httpServer = createServer(app);
@@ -35,7 +37,9 @@ app.get('/health', (req, res) => {
 });
 
 
-app.use('/api/auth', authRoutes);  
+app.use('/api/auth', authRoutes);
+app.use('/api/restaurants', restaurantRoutes);
+
 
 
 app.use('/{*any}', (req, res) => {  
