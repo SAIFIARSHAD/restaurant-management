@@ -4,6 +4,7 @@ import cors from 'cors';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import connectDB from './config/database';
+import authRoutes from './routes/authRoutes';  
 
 const app = express();
 const httpServer = createServer(app);
@@ -26,22 +27,27 @@ app.use(express.urlencoded({ extended: true }));
 // Health Check
 app.get('/health', (req, res) => {
   res.json({
-    status: ' Server is running!',
+    status: 'Server is running!',
     environment: process.env.NODE_ENV,
     timestamp: new Date().toISOString(),
     uptime: `${Math.floor(process.uptime())} seconds`
   });
 });
 
+
+app.use('/api/auth', authRoutes);  
+
+
+app.use('/{*any}', (req, res) => {  
+  res.status(404).json({ success: false, message: `Route ${req.originalUrl} not found` });
+});
+
 // Socket.IO
 io.on('connection', (socket) => {
   console.log(`Connected: ${socket.id}`);
-
   socket.on('join_restaurant', (tenantId: string) => {
     socket.join(`restaurant_${tenantId}`);
-    console.log(`Joined room: restaurant_${tenantId}`);
   });
-
   socket.on('disconnect', () => {
     console.log(`Disconnected: ${socket.id}`);
   });
@@ -52,7 +58,6 @@ const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   await connectDB();
-
   httpServer.listen(PORT, () => {
     console.log(`Server: http://localhost:${PORT}`);
     console.log(`Health: http://localhost:${PORT}/health`);
