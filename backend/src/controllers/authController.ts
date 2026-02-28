@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import User from '../models/User';
+import Restaurant from '../models/Restaurant';
 
 const generateToken = (id: string, role: string): string => {
   return jwt.sign({ id, role }, process.env.JWT_SECRET as string, {
@@ -11,7 +12,7 @@ const generateToken = (id: string, role: string): string => {
 // @POST /api/auth/register
 export const register = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { name, email, password, role } = req.body;
+    const { name, email, password, role, restaurantName, phone } = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -19,7 +20,32 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const user = await User.create({ name, email, password, role });
+    
+    const user = await User.create({
+      name,
+      email,
+      password,
+      role: role || 'admin',
+    });
+
+    
+    const slug = (restaurantName || name)
+      .toLowerCase()
+      .replace(/\s+/g, '-')
+      .replace(/[^a-z0-9-]/g, '') + '-' + Date.now();
+
+    const restaurant = await Restaurant.create({
+      name: restaurantName || `${name}'s Restaurant`,
+      slug,
+      owner: user._id,              
+      email,
+      phone: phone || '0000000000', 
+    });
+
+    
+    user.restaurant = restaurant._id as any;
+    await user.save();
+
     const token = generateToken(user._id.toString(), user.role);
 
     res.status(201).json({
@@ -31,6 +57,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
         name: user.name,
         email: user.email,
         role: user.role,
+        restaurant: restaurant._id, 
       },
     });
   } catch (error: any) {
@@ -66,6 +93,7 @@ export const login = async (req: Request, res: Response): Promise<void> => {
         name: user.name,
         email: user.email,
         role: user.role,
+        restaurant: user.restaurant,
       },
     });
   } catch (error: any) {
@@ -76,10 +104,9 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 // @GET /api/auth/me
 export const getMe = async (req: Request, res: Response): Promise<void> => {
   try {
-    const user = await User.findById((req as any).user.id).select('-password');
+    const user = await User.findById((req as any).user._id).select('-password');
     res.status(200).json({ success: true, user });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
-

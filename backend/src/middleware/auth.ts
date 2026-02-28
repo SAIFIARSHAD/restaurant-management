@@ -25,7 +25,15 @@ export const protect = async (
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as JwtPayload;
-    (req as any).user = await User.findById(decoded.id).select('-password');
+
+    const user = await User.findById(decoded.id).select('-password');
+
+    if (!user) {
+      res.status(401).json({ success: false, message: 'User not found' });
+      return;
+    }
+
+    (req as any).user = user;
     next();
   } catch (error) {
     res.status(401).json({ success: false, message: 'Token invalid or expired' });
