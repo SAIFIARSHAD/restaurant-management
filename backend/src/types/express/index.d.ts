@@ -1,4 +1,4 @@
-export {};
+import { Document } from 'mongoose';
 
 declare global {
   namespace Express {
@@ -7,7 +7,11 @@ declare global {
         id: string;
         restaurantId: string;
         role: string;
+        name: string;
+        email: string;
       };
     }
   }
 }
+
+export {};

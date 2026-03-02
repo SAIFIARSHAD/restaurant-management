@@ -9,6 +9,10 @@ import restaurantRoutes from './routes/restaurantRoutes';
 import menuRoutes from './routes/menuRoutes';
 import tableRoutes from './routes/tableRoutes';
 import orderRoutes from './routes/orderRoutes';
+import kdsRoutes from './routes/kdsRoutes';
+import billRoutes from './routes/billRoutes';
+
+
 
 
 
@@ -23,6 +27,7 @@ export const io = new Server(httpServer, {
   }
 });
 
+app.set('io', io);
 // Middlewares
 app.use(cors({
   origin: process.env.CLIENT_URL || 'http://localhost:3000',
@@ -47,6 +52,8 @@ app.use('/api/restaurants', restaurantRoutes);
 app.use('/api/menu', menuRoutes);
 app.use('/api/tables', tableRoutes);
 app.use('/api/orders', orderRoutes);
+app.use('/api/kds', kdsRoutes);
+app.use('/api/bills', billRoutes);
 
 
 

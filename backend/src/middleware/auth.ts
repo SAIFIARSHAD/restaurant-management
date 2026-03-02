@@ -33,7 +33,13 @@ export const protect = async (
       return;
     }
 
-    (req as any).user = user;
+  req.user = {
+  id: user._id.toString(),
+  restaurantId: user.restaurant?.toString() || '',
+  role: user.role,
+  name: user.name,
+  email: user.email
+};
     next();
   } catch (error) {
     res.status(401).json({ success: false, message: 'Token invalid or expired' });
