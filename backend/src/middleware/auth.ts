@@ -36,6 +36,7 @@ export const protect = async (
   req.user = {
   id: user._id.toString(),
   restaurantId: user.restaurant?.toString() || '',
+  restaurant: user.restaurant,
   role: user.role,
   name: user.name,
   email: user.email

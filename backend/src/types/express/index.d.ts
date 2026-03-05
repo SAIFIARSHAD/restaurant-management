@@ -6,6 +6,7 @@ declare global {
       user?: {
         id: string;
         restaurantId: string;
+        restaurant?: any;
         role: string;
         name: string;
         email: string;

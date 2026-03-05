@@ -11,6 +11,7 @@ import tableRoutes from './routes/tableRoutes';
 import orderRoutes from './routes/orderRoutes';
 import kdsRoutes from './routes/kdsRoutes';
 import billRoutes from './routes/billRoutes';
+import paymentRoutes from './routes/paymentRoutes';
 
 
 
@@ -22,7 +23,8 @@ const httpServer = createServer(app);
 
 export const io = new Server(httpServer, {
   cors: {
-    origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    //origin: process.env.CLIENT_URL || 'http://localhost:3000',
+    origin: '*',
     methods: ['GET', 'POST']
   }
 });
@@ -30,8 +32,9 @@ export const io = new Server(httpServer, {
 app.set('io', io);
 // Middlewares
 app.use(cors({
-  origin: process.env.CLIENT_URL || 'http://localhost:3000',
-  credentials: true
+  //origin: process.env.CLIENT_URL || 'http://localhost:3000',
+  origin: '*',
+  credentials: false
 }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -54,6 +57,7 @@ app.use('/api/tables', tableRoutes);
 app.use('/api/orders', orderRoutes);
 app.use('/api/kds', kdsRoutes);
 app.use('/api/bills', billRoutes);
+app.use('/api/payments', paymentRoutes);
 
 
 
@@ -62,15 +66,8 @@ app.use('/{*any}', (req, res) => {
 });
 
 // Socket.IO
-io.on('connection', (socket) => {
-  console.log(`Connected: ${socket.id}`);
-  socket.on('join_restaurant', (tenantId: string) => {
-    socket.join(`restaurant_${tenantId}`);
-  });
-  socket.on('disconnect', () => {
-    console.log(`Disconnected: ${socket.id}`);
-  });
-});
+import { registerSocketHandlers } from './socket/socketHandler';
+registerSocketHandlers(io);
 
 // Start Server
 const PORT = process.env.PORT || 5000;

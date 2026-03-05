@@ -2,14 +2,16 @@ import { Request, Response } from 'express';
 import Order from '../models/Order';
 import Table from '../models/Table';
 import MenuItem from '../models/MenuItem';
+import { emitNewOrder, emitOrderAccepted, emitOrderReady, emitOrderCancelled } from '../socket/socketHandler';
+import { io } from '../server';
 
-// Helper — restaurantId 
+// Helper — restaurantId
 const getRestaurantId = (req: Request) => {
   const user = (req as any).user;
   const restaurant = user?.restaurant;
 
   if (!restaurant) return null;
-  
+
   if (restaurant['$oid']) {
     return restaurant['$oid'];
   }
@@ -20,17 +22,12 @@ const getRestaurantId = (req: Request) => {
   return restaurant.toString();
 };
 
-
-
 // Create Order
 export const createOrder = async (req: Request, res: Response) => {
   try {
     const { tableId, items, notes } = req.body;
     const restaurantId = getRestaurantId(req);
-    console.log('restaurant value:', (req as any).user?.restaurant);
-    console.log('restaurantId:', restaurantId);
-
-    const userId = (req as any).user._id;
+    const userId = (req as any).user.id;
 
     if (!restaurantId) {
       return res.status(400).json({ success: false, message: 'Restaurant not found for this user' });
@@ -78,6 +75,17 @@ export const createOrder = async (req: Request, res: Response) => {
 
     await Table.findByIdAndUpdate(tableId, { status: 'occupied' });
 
+    //  notify Kitchen at real-time 
+    emitNewOrder(io, restaurantId, {
+      orderId: order._id,
+      orderNumber: order.orderNumber,
+      tableNumber: order.tableNumber,
+      items: order.items,
+      notes: order.notes,
+      status: order.status,
+      createdAt: (order as any).createdAt
+    });
+
     res.status(201).json({ success: true, message: 'Order created!', order });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
@@ -124,6 +132,8 @@ export const getOrderById = async (req: Request, res: Response) => {
 export const updateOrderStatus = async (req: Request, res: Response) => {
   try {
     const { status } = req.body;
+    const restaurantId = getRestaurantId(req);
+
     const order = await Order.findByIdAndUpdate(
       req.params.id,
       { status, ...(status === 'served' ? { servedAt: new Date() } : {}) },
@@ -134,6 +144,20 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
 
     if (status === 'served' || status === 'cancelled') {
       await Table.findByIdAndUpdate(order.table, { status: 'available' });
+    }
+
+    // emit karo
+    if (restaurantId) {
+      const payload = {
+        orderId: order._id,
+        orderNumber: order.orderNumber,
+        tableNumber: order.tableNumber,
+        status: order.status
+      };
+
+      if (status === 'accepted') emitOrderAccepted(io, restaurantId, payload);
+      if (status === 'ready') emitOrderReady(io, restaurantId, payload);
+      if (status === 'cancelled') emitOrderCancelled(io, restaurantId, payload);
     }
 
     res.json({ success: true, message: 'Order status updated!', order });
