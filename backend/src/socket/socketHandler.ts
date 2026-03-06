@@ -45,3 +45,15 @@ export const emitOrderCancelled = (io: Server, restaurantId: string, order: any)
   io.to(`kds_${restaurantId}`).emit('order_cancelled', order);
   io.to(`waiter_${restaurantId}`).emit('order_cancelled', order);
 };
+
+// Per-Station emit
+export const emitToStation = (
+  io: Server,
+  restaurantId: string,
+  stationType: string,
+  event: string,
+  data: any
+) => {
+  const room = `kds_${restaurantId}_${stationType}`;
+  io.to(room).emit(event, data);
+};

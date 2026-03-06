@@ -12,6 +12,8 @@ import orderRoutes from './routes/orderRoutes';
 import kdsRoutes from './routes/kdsRoutes';
 import billRoutes from './routes/billRoutes';
 import paymentRoutes from './routes/paymentRoutes';
+import stationRoutes from './routes/stationRoutes';
+import uploadRoutes from './routes/uploadRoutes';
 
 
 
@@ -58,6 +60,8 @@ app.use('/api/orders', orderRoutes);
 app.use('/api/kds', kdsRoutes);
 app.use('/api/bills', billRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/stations', stationRoutes);
+app.use('/api/upload', uploadRoutes);
 
 
 

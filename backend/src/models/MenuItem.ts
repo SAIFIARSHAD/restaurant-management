@@ -20,6 +20,7 @@ export interface IMenuItem extends Document {
     }[];
   }[];
   sortOrder: number;
+  station?: 'grill' | 'drinks' | 'kitchen' | 'dessert' | 'other';
 }
 
 const MenuItemSchema = new Schema<IMenuItem>(
@@ -47,6 +48,12 @@ const MenuItemSchema = new Schema<IMenuItem>(
       },
     ],
     sortOrder: { type: Number, default: 0 },
+    station: { 
+    type: String,
+    enum: ['grill', 'drinks', 'kitchen', 'dessert', 'other'],
+    default: 'kitchen'
+  },
+
   },
   { timestamps: true }
 );

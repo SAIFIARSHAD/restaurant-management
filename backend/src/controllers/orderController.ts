@@ -2,8 +2,9 @@ import { Request, Response } from 'express';
 import Order from '../models/Order';
 import Table from '../models/Table';
 import MenuItem from '../models/MenuItem';
-import { emitNewOrder, emitOrderAccepted, emitOrderReady, emitOrderCancelled } from '../socket/socketHandler';
+import { emitNewOrder, emitOrderAccepted, emitOrderReady, emitOrderCancelled, emitToStation } from '../socket/socketHandler';
 import { io } from '../server';
+
 
 // Helper — restaurantId
 const getRestaurantId = (req: Request) => {
@@ -50,7 +51,8 @@ export const createOrder = async (req: Request, res: Response) => {
         name: menuItem.name,
         price: menuItem.price,
         quantity: item.quantity,
-        notes: item.notes || ''
+        notes: item.notes || '',
+        station: menuItem.station || 'kitchen'
       });
     }
 
@@ -85,6 +87,29 @@ export const createOrder = async (req: Request, res: Response) => {
       status: order.status,
       createdAt: (order as any).createdAt
     });
+// Per-Station emit
+const stationGroups: { [key: string]: any[] } = {};
+
+    for (const item of order.items) {
+      const station = (item as any).station || 'kitchen';
+      if (!stationGroups[station]) {
+        stationGroups[station] = [];
+      }
+      stationGroups[station].push(item);
+    }
+
+    Object.keys(stationGroups).forEach(stationType => {
+      emitToStation(io, restaurantId, stationType, 'new_station_order', {
+        orderId: order._id,
+        orderNumber: order.orderNumber,
+        tableNumber: order.tableNumber,
+        items: stationGroups[stationType],
+        notes: order.notes,
+        createdAt: (order as any).createdAt
+      });
+    });
+
+
 
     res.status(201).json({ success: true, message: 'Order created!', order });
   } catch (error: any) {

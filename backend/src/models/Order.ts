@@ -6,6 +6,7 @@ export interface IOrderItem {
   price: number;
   quantity: number;
   notes?: string;
+  station?: 'grill' | 'drinks' | 'kitchen' | 'dessert' | 'other';
 }
 
 export interface IOrder extends Document {
@@ -33,7 +34,12 @@ const OrderItemSchema = new Schema<IOrderItem>({
   name: { type: String, required: true },
   price: { type: Number, required: true },
   quantity: { type: Number, required: true, min: 1 },
-  notes: { type: String }
+  notes: { type: String },
+  station: {                              
+    type: String,
+    enum: ['grill', 'drinks', 'kitchen', 'dessert', 'other'],
+    default: 'kitchen'
+  }
 });
 
 const OrderSchema = new Schema<IOrder>(
