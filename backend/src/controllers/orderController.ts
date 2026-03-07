@@ -183,40 +183,53 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
         status: order.status
       };
 
-       if (status === 'accepted') {
-            const fullOrder = await Order.findById(req.params.id);
+  if (status === 'accepted') {
+  const fullOrder = await Order.findById(req.params.id);
 
-            if (fullOrder) {
-              for (const item of fullOrder.items) {
-                const recipe = await Recipe.findOne({
-                  menuItem: item.menuItem,
-                  isActive: true
-                });
-                 if (recipe) {
-                  for (const ingredient of recipe.ingredients) {
+  if (fullOrder) {
+    for (const item of fullOrder.items) {
+      const recipe = await Recipe.findOne({
+        menuItem: item.menuItem,
+        isActive: true
+      });
 
-                    const rawMaterial = await RawMaterial.findById(ingredient.rawMaterial);
-                    if (!rawMaterial) continue;
+      if (recipe) {
+        for (const ingredient of recipe.ingredients) {
+          const rawMaterial = await RawMaterial.findById(ingredient.rawMaterial);
+          if (!rawMaterial) continue;
 
-                    // Smart deduction — Any unit
-                    const deductAmount = calculateDeduction(
-                      ingredient.quantity,   
-                      ingredient.unit,       
-                      rawMaterial.unit,      
-                      item.quantity          
-                    );
+          // Unit conversion + deduction
+          const deductAmount = calculateDeduction(
+            ingredient.quantity,
+            ingredient.unit,
+            rawMaterial.unit,
+            item.quantity
+          );
 
-                    await RawMaterial.findByIdAndUpdate(
-                      ingredient.rawMaterial,
-                      { $inc: { currentStock: -deductAmount } }
-                    );
-                  }
-                }
-              }
-            }
-            emitOrderAccepted(io, restaurantId, payload);
+          await RawMaterial.findByIdAndUpdate(
+            ingredient.rawMaterial,
+            { $inc: { currentStock: -deductAmount } }
+          );
+
+          // Low Stock Alert — Check after deduction
+          const updatedMaterial = await RawMaterial.findById(ingredient.rawMaterial);
+          if (updatedMaterial && updatedMaterial.currentStock <= updatedMaterial.minThreshold) {
+            io.to(`restaurant_${restaurantId}`).emit('low_stock_alert', {
+              materialId: updatedMaterial._id,
+              name: updatedMaterial.name,
+              currentStock: updatedMaterial.currentStock,
+              minThreshold: updatedMaterial.minThreshold,
+              unit: updatedMaterial.unit,
+              message: ` Low Stock! ${updatedMaterial.name} sirf ${updatedMaterial.currentStock} ${updatedMaterial.unit} bacha hai!`
+            });
           }
-  
+        }
+      }
+    }
+  }
+  emitOrderAccepted(io, restaurantId, payload);
+}
+
       if (status === 'ready') emitOrderReady(io, restaurantId, payload);
       if (status === 'cancelled') emitOrderCancelled(io, restaurantId, payload);
     }
