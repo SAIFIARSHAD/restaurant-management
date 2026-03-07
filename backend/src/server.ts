@@ -15,6 +15,7 @@ import paymentRoutes from './routes/paymentRoutes';
 import stationRoutes from './routes/stationRoutes';
 import uploadRoutes from './routes/uploadRoutes';
 import rawMaterialRoutes from './routes/rawMaterialRoutes';
+import recipeRoutes from './routes/recipeRoutes';
 
 
 
@@ -64,6 +65,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/stations', stationRoutes);
 app.use('/api/upload', uploadRoutes);
 app.use('/api/inventory', rawMaterialRoutes);
+app.use('/api/recipes', recipeRoutes);
 
 
 

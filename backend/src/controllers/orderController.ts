@@ -4,6 +4,9 @@ import Table from '../models/Table';
 import MenuItem from '../models/MenuItem';
 import { emitNewOrder, emitOrderAccepted, emitOrderReady, emitOrderCancelled, emitToStation } from '../socket/socketHandler';
 import { io } from '../server';
+import Recipe from '../models/Recipe';
+import RawMaterial from '../models/RawMaterial';
+import { calculateDeduction } from '../utils/unitConverter';
 
 
 // Helper — restaurantId
@@ -180,7 +183,40 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
         status: order.status
       };
 
-      if (status === 'accepted') emitOrderAccepted(io, restaurantId, payload);
+       if (status === 'accepted') {
+            const fullOrder = await Order.findById(req.params.id);
+
+            if (fullOrder) {
+              for (const item of fullOrder.items) {
+                const recipe = await Recipe.findOne({
+                  menuItem: item.menuItem,
+                  isActive: true
+                });
+                 if (recipe) {
+                  for (const ingredient of recipe.ingredients) {
+
+                    const rawMaterial = await RawMaterial.findById(ingredient.rawMaterial);
+                    if (!rawMaterial) continue;
+
+                    // Smart deduction — Any unit
+                    const deductAmount = calculateDeduction(
+                      ingredient.quantity,   
+                      ingredient.unit,       
+                      rawMaterial.unit,      
+                      item.quantity          
+                    );
+
+                    await RawMaterial.findByIdAndUpdate(
+                      ingredient.rawMaterial,
+                      { $inc: { currentStock: -deductAmount } }
+                    );
+                  }
+                }
+              }
+            }
+            emitOrderAccepted(io, restaurantId, payload);
+          }
+  
       if (status === 'ready') emitOrderReady(io, restaurantId, payload);
       if (status === 'cancelled') emitOrderCancelled(io, restaurantId, payload);
     }
