@@ -230,7 +230,7 @@ export const getDailySummary = async (req: Request, res: Response) => {
     const restaurantId = getRestaurantId(req);
 
             const now = new Date();
-        const ISTOffset = 5.5 * 60 * 60 * 1000; // 5:30 hours in ms
+        const ISTOffset = 5.5 * 60 * 60 * 1000; 
 
         const todayStart = new Date(
         new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0).getTime() - ISTOffset

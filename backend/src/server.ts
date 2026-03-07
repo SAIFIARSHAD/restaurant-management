@@ -18,6 +18,7 @@ import rawMaterialRoutes from './routes/rawMaterialRoutes';
 import recipeRoutes from './routes/recipeRoutes';
 import vendorRoutes from './routes/vendorRoutes';
 import reportRoutes from './routes/reportRoutes';
+import analyticsRoutes from './routes/analyticsRoutes';
 
 
 
@@ -70,6 +71,7 @@ app.use('/api/inventory', rawMaterialRoutes);
 app.use('/api/recipes', recipeRoutes);
 app.use('/api/vendors', vendorRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/analytics', analyticsRoutes);
 
 
 
