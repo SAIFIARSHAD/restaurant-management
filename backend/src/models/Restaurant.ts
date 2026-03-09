@@ -27,6 +27,12 @@ export interface IRestaurant extends Document {
     taxRate: number;
     serviceCharge: number;
   };
+  networkConfig?: {
+    ipRange: string;
+    allowedIp: string;
+    lastUpdated?: Date;
+    updatedBy?: mongoose.Types.ObjectId;
+  };
 }
 
 const RestaurantSchema = new Schema<IRestaurant>(
@@ -57,7 +63,16 @@ const RestaurantSchema = new Schema<IRestaurant>(
       taxRate: { type: Number, default: 18 },
       serviceCharge: { type: Number, default: 0 },
     },
+
+        networkConfig: {
+        ipRange: { type: String, default: '' },      
+        allowedIp: { type: String, default: '' },    
+        lastUpdated: { type: Date },
+        updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+      },
+
   },
+  
   { timestamps: true }
 );
 

@@ -8,7 +8,7 @@ import {
   getItems,
   updateItem,
   deleteItem,
-} from '../controllers/menuController';
+} from '../controllers/MenuController';
 import { protect, authorize } from '../middleware/auth';
 
 const router = Router();

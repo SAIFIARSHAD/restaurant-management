@@ -10,7 +10,7 @@ export interface GSTBreakdown {
   totalAmount: number;
 }
 
-// Single item ka GST calculate karo
+// Single item GST calculation 
 export const calculateGST = (
   baseAmount: number,
   gstRate: GSTSlab,
@@ -33,7 +33,7 @@ export const calculateGST = (
   };
 };
 
-// Full bill ka GST calculate karo (multiple items)
+// Full bill GST calculation (multiple items)
 export const calculateBillGST = (
   items: { price: number; quantity: number; gstRate: GSTSlab }[],
   isInterState: boolean = false

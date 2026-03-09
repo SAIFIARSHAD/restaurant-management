@@ -5,7 +5,7 @@ export interface IUser extends Document {
   name: string;
   email: string;
   password: string;
-  role: 'superadmin' | 'admin' | 'manager' | 'kitchen' | 'waiter';
+  role: 'superadmin' | 'admin' | 'manager' | 'cashier' | 'kitchen' | 'waiter' | 'delivery';
   restaurant?: mongoose.Types.ObjectId;  
   isActive: boolean;
   comparePassword(password: string): Promise<boolean>;
@@ -18,7 +18,7 @@ const UserSchema = new Schema<IUser>(
     password: { type: String, required: true, minlength: 6 },
     role: {
       type: String,
-      enum: ['superadmin', 'admin', 'manager', 'kitchen', 'waiter'],
+      enum: ['superadmin', 'admin', 'manager', 'cashier', 'kitchen', 'waiter', 'delivery'],
       default: 'admin',
     },
     restaurant: {                                    

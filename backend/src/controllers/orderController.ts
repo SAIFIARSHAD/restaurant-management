@@ -174,7 +174,7 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
       await Table.findByIdAndUpdate(order.table, { status: 'available' });
     }
 
-    // emit karo
+    // Do emit 
     if (restaurantId) {
       const payload = {
         orderId: order._id,

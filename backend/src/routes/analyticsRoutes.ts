@@ -1,5 +1,3 @@
-// src/routes/analyticsRoutes.ts
-
 import { Router } from 'express';
 import {
   getDashboardStats,

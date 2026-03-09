@@ -34,7 +34,7 @@ export const generateBillPDF = (billData: BillData, res: Response) => {
   );
   doc.pipe(res);
 
-  // ─── HEADER ───
+  // HEADER
   doc
     .fontSize(20)
     .font('Helvetica-Bold')
@@ -53,7 +53,7 @@ export const generateBillPDF = (billData: BillData, res: Response) => {
   doc.moveTo(40, doc.y).lineTo(555, doc.y).stroke();
   doc.moveDown(0.5);
 
-  // ─── BILL INFO ───
+  // BILL INFO
   doc.fontSize(10).font('Helvetica-Bold').text('TAX INVOICE', { align: 'center' });
   doc.moveDown(0.5);
 
@@ -72,7 +72,7 @@ export const generateBillPDF = (billData: BillData, res: Response) => {
   doc.moveTo(40, doc.y).lineTo(555, doc.y).stroke();
   doc.moveDown(0.5);
 
-  // ─── TABLE HEADER ───
+  // TABLE HEADER
   doc.fontSize(9).font('Helvetica-Bold');
   doc.text('Item', 40, doc.y, { width: 200 });
   doc.text('Qty', 240, doc.y - 12, { width: 50, align: 'center' });
@@ -84,7 +84,7 @@ export const generateBillPDF = (billData: BillData, res: Response) => {
   doc.moveTo(40, doc.y).lineTo(555, doc.y).stroke();
   doc.moveDown(0.3);
 
-  // ─── ITEMS ───
+  // ITEMS
   doc.font('Helvetica').fontSize(9);
   billData.items.forEach((item) => {
     const itemTotal = item.price * item.quantity;
@@ -100,7 +100,7 @@ export const generateBillPDF = (billData: BillData, res: Response) => {
   doc.moveTo(40, doc.y).lineTo(555, doc.y).stroke();
   doc.moveDown(0.5);
 
-  // ─── GST SUMMARY ───
+  // GST SUMMARY
   const gstData = calculateBillGST(billData.items, billData.isInterState);
   const { summary } = gstData;
 
@@ -143,7 +143,7 @@ export const generateBillPDF = (billData: BillData, res: Response) => {
     align: 'right',
   });
 
-  // ─── FOOTER ───
+  // FOOTER
   doc.moveDown(2);
   doc
     .fontSize(9)

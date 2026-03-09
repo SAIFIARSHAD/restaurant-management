@@ -19,6 +19,9 @@ import recipeRoutes from './routes/recipeRoutes';
 import vendorRoutes from './routes/vendorRoutes';
 import reportRoutes from './routes/reportRoutes';
 import analyticsRoutes from './routes/analyticsRoutes';
+import exportRoutes from './routes/exportRoutes';
+import employeeRoutes from './routes/employeeRoutes';
+import { startAttendanceCron } from './utils/attendanceCron';
 
 
 
@@ -72,6 +75,8 @@ app.use('/api/recipes', recipeRoutes);
 app.use('/api/vendors', vendorRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/analytics', analyticsRoutes);
+app.use('/api/export', exportRoutes);
+app.use('/api/employees', employeeRoutes);
 
 
 
@@ -88,6 +93,7 @@ const PORT = process.env.PORT || 5000;
 
 const startServer = async () => {
   await connectDB();
+  startAttendanceCron();
   httpServer.listen(PORT, () => {
     console.log(`Server: http://localhost:${PORT}`);
     console.log(`Health: http://localhost:${PORT}/health`);
