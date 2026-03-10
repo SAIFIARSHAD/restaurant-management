@@ -64,3 +64,30 @@ export const updateRestaurant = async (req: Request, res: Response): Promise<voi
     res.status(500).json({ success: false, message: error.message });
   }
 };
+// PAYROLL SETTINGS UPDATE
+export const updatePayrollSettings = async (req: Request, res: Response) => {
+  try {
+    const restaurantId = (req as any).user.restaurantId as string;
+    const { workingDaysPerMonth, overtimeRatePerHour, salaryCalculationOn } = req.body;
+
+    const restaurant = await Restaurant.findByIdAndUpdate(
+      restaurantId,
+      {
+        $set: {
+          'payrollSettings.workingDaysPerMonth': workingDaysPerMonth,
+          'payrollSettings.overtimeRatePerHour': overtimeRatePerHour,
+          'payrollSettings.salaryCalculationOn': salaryCalculationOn,
+        },
+      },
+      { new: true }
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Payroll settings updated ',
+      data: restaurant?.payrollSettings,
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, message: 'Server error', error });
+  }
+};

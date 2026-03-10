@@ -22,6 +22,8 @@ import analyticsRoutes from './routes/analyticsRoutes';
 import exportRoutes from './routes/exportRoutes';
 import employeeRoutes from './routes/employeeRoutes';
 import { startAttendanceCron } from './utils/attendanceCron';
+import payrollRoutes from './routes/payrollRoutes';
+import expenseRoutes from './routes/expenseRoutes';
 
 
 
@@ -77,6 +79,8 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/export', exportRoutes);
 app.use('/api/employees', employeeRoutes);
+app.use('/api/payroll', payrollRoutes);
+app.use('/api/expenses', expenseRoutes);
 
 
 

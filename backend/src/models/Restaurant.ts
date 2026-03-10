@@ -33,6 +33,11 @@ export interface IRestaurant extends Document {
     lastUpdated?: Date;
     updatedBy?: mongoose.Types.ObjectId;
   };
+    payrollSettings?: {
+    workingDaysPerMonth: number;
+    overtimeRatePerHour: number;
+    salaryCalculationOn: '22' | '24' | '26' | '28' | '30' | '31' | 'actual';
+  };
 }
 
 const RestaurantSchema = new Schema<IRestaurant>(
@@ -69,6 +74,15 @@ const RestaurantSchema = new Schema<IRestaurant>(
         allowedIp: { type: String, default: '' },    
         lastUpdated: { type: Date },
         updatedBy: { type: Schema.Types.ObjectId, ref: 'User' },
+      },
+        payrollSettings: {
+        workingDaysPerMonth: { type: Number, default: 26 },
+        overtimeRatePerHour: { type: Number, default: 50 },
+        salaryCalculationOn: {
+          type: String,
+          enum: ['22','24','26', '28', '30', '31', 'actual'],
+          default: '26'
+        }
       },
 
   },
