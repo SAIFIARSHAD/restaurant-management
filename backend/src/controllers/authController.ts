@@ -77,10 +77,22 @@ export const login = async (req: Request, res: Response): Promise<void> => {
     }
 
     const isMatch = await user.comparePassword(password);
-    if (!isMatch) {
-      res.status(401).json({ success: false, message: 'Invalid credentials' });
-      return;
-    }
+   if (!isMatch) {
+  const rateLimitInfo = (req as any).rateLimit;
+
+  console.log('rateLimit object:', rateLimitInfo);
+
+  const used = rateLimitInfo?.used ?? 1;
+  const remaining = rateLimitInfo?.remaining ?? (5 - used);
+
+  return void res.status(401).json({
+    success: false,
+    message: 'Invalid credentials',
+    attemptsUsed: used,
+    attemptsRemaining: remaining
+  });
+}
+
 
     const token = generateToken(user._id.toString(), user.role);
 
