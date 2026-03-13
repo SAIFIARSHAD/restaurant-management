@@ -1,17 +1,28 @@
-// src/components/layout/Sidebar.tsx
 import { NavLink } from "react-router-dom";
+import {
+  LayoutDashboard,
+  ShoppingBag,
+  UtensilsCrossed,
+  TableProperties,
+  Package,
+  Handshake,
+  Users,
+  Wallet,
+  BarChart2,
+  PieChart,
+} from "lucide-react";
 
 const menuItems = [
-  { label: "🏠 Dashboard", to: "/dashboard" },
-  { label: "📦 Orders", to: "/dashboard/orders" },
-  { label: "🍽️ Menu", to: "/dashboard/menu" },
-  { label: "🪑 Tables", to: "/dashboard/tables" },
-  { label: "🏪 Inventory", to: "/dashboard/inventory" },
-  { label: "🤝 Vendors", to: "/dashboard/vendors" },
-  { label: "👥 Employees", to: "/dashboard/employees" },
-  { label: "💸 Expenses", to: "/dashboard/expenses" },
-  { label: "📋 Reports", to: "/dashboard/reports" },
-  { label: "📊 Analytics", to: "/dashboard/analytics" },
+  { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
+  { label: "Orders", to: "/dashboard/orders", icon: ShoppingBag },
+  { label: "Menu", to: "/dashboard/menu", icon: UtensilsCrossed },
+  { label: "Tables", to: "/dashboard/tables", icon: TableProperties },
+  { label: "Inventory", to: "/dashboard/inventory", icon: Package },
+  { label: "Vendors", to: "/dashboard/vendors", icon: Handshake },
+  { label: "Employees", to: "/dashboard/employees", icon: Users },
+  { label: "Expenses", to: "/dashboard/expenses", icon: Wallet },
+  { label: "Reports", to: "/dashboard/reports", icon: BarChart2 },
+  { label: "Analytics", to: "/dashboard/analytics", icon: PieChart },
 ];
 
 export default function Sidebar() {
@@ -45,6 +56,7 @@ export default function Sidebar() {
               isActive ? "sidebar-item-active" : "sidebar-item"
             }
           >
+            <item.icon size={17} className="shrink-0" />
             <span>{item.label}</span>
           </NavLink>
         ))}
