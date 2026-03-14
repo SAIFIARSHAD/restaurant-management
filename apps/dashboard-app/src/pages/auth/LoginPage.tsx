@@ -1,10 +1,40 @@
 import { useState } from "react";
 import { useAuth } from "../../hooks/useAuth";
+import {
+  ShoppingBag,
+  UtensilsCrossed,
+  CreditCard,
+  BarChart2,
+  Package,
+  Users,
+  ClipboardList,
+  Wallet,
+  TableProperties,
+  Handshake,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
+
+const features = [
+  { label: "Orders", icon: ShoppingBag },
+  { label: "KDS", icon: UtensilsCrossed },
+  { label: "Billing", icon: CreditCard },
+  { label: "Analytics", icon: BarChart2 },
+  { label: "Inventory", icon: Package },
+  { label: "Employees", icon: Users },
+  { label: "Reports", icon: ClipboardList },
+  { label: "Expenses", icon: Wallet },
+  { label: "Tables", icon: TableProperties },
+  { label: "Vendors", icon: Handshake },
+];
+
+const VISIBLE_COUNT = 4;
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showAllFeatures, setShowAllFeatures] = useState(false);
   const { login, loading: isLoading, error } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -12,15 +42,17 @@ export default function LoginPage() {
     await login(email, password);
   };
 
+  const visibleFeatures = showAllFeatures
+    ? features
+    : features.slice(0, VISIBLE_COUNT);
+
   return (
     <div className="min-h-screen flex bg-[#0f172a]">
-      {/* LEFT SIDE - Illustration */}
+      {/* LEFT SIDE */}
       <div className="hidden lg:flex flex-1 flex-col items-center justify-center relative overflow-hidden bg-gradient-to-br from-[#1a1f35] to-[#0f172a] p-12">
-        {/* Glow blobs */}
         <div className="absolute top-1/4 left-1/4 w-72 h-72 bg-orange-500/20 rounded-full blur-3xl" />
         <div className="absolute bottom-1/4 right-1/4 w-56 h-56 bg-blue-600/10 rounded-full blur-3xl" />
 
-        {/* Logo + Branding */}
         <div className="relative z-10 flex flex-col items-center gap-8">
           <img
             src="/logo.jpg"
@@ -38,20 +70,36 @@ export default function LoginPage() {
 
           {/* Feature pills */}
           <div className="flex flex-wrap gap-2 justify-center">
-            {["📦 Orders", "🍳 KDS", "💳 Billing", "📊 Analytics"].map(
-              (f) => (
-                <span
-                  key={f}
-                  className="px-3 py-1.5 bg-white/5 border border-white/10 rounded-full text-sm text-slate-300"
-                >
-                  {f}
-                </span>
-              )
-            )}
+            {visibleFeatures.map(({ label, icon: Icon }) => (
+              <span
+                key={label}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 border border-white/10 rounded-full text-sm text-slate-300"
+              >
+                <Icon size={14} className="text-orange-400" />
+                {label}
+              </span>
+            ))}
+
+            {/* More / Less toggle pill */}
+            <button
+              onClick={() => setShowAllFeatures(!showAllFeatures)}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-orange-500/10 border border-orange-500/30 rounded-full text-sm text-orange-400 hover:bg-orange-500/20 transition-all duration-200"
+            >
+              {showAllFeatures ? (
+                <>
+                  <ChevronUp size={14} />
+                  Less
+                </>
+              ) : (
+                <>
+                  <ChevronDown size={14} />
+                  +{features.length - VISIBLE_COUNT} More
+                </>
+              )}
+            </button>
           </div>
         </div>
 
-        {/* Bottom brand */}
         <p className="absolute bottom-6 text-slate-600 text-sm">
           © 2026 ZaikaFlow · From Rasoi to Receipt, Everything Flows Perfectly.
         </p>
@@ -60,7 +108,6 @@ export default function LoginPage() {
       {/* RIGHT SIDE - Form */}
       <div className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-md">
-          {/* Logo */}
           <div className="flex flex-col items-center mb-10">
             <img
               src="/logo.jpg"
@@ -75,7 +122,6 @@ export default function LoginPage() {
             </p>
           </div>
 
-          {/* Card */}
           <div className="bg-white/5 border border-white/10 rounded-2xl p-8 backdrop-blur-md">
             <h3 className="text-lg font-semibold text-white mb-6">Sign In</h3>
 
