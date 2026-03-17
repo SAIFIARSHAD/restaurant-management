@@ -13,6 +13,7 @@ export interface User {
   email: string;
   role: UserRole;
   tenantId: string;
+  restaurant: string;
   avatar?: string;
 }
 
