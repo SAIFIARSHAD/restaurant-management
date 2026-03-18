@@ -232,13 +232,13 @@ export default function OrdersPage() {
           <p className="text-zinc-500 text-lg">No orders found</p>
           <p className="text-zinc-600 text-sm mt-1">
             {selectedTable
-              ? `Table ${tables.find(t => t._id === selectedTable)?.tableNumber} pe koi order nahi hai`
+              ? ` ${tables.find(t => t._id === selectedTable)?.tableNumber} No orders for this table`
               : selectedFloor
-              ? `${selectedFloor} floor pe koi order nahi hai`
-              : quickFilter === 'today'     ? 'Aaj koi order nahi'
-              : quickFilter === 'yesterday' ? 'Kal koi order nahi tha'
-              : quickFilter === 'custom'    ? 'Is range mein koi order nahi'
-              : 'Abhi koi order nahi hai'}
+              ? `${selectedFloor} No orders on this floor`
+              : quickFilter === 'today'     ? 'No orders today'
+              : quickFilter === 'yesterday' ? 'No orders yesterday'
+              : quickFilter === 'custom'    ? 'No orders in this range'
+              : 'No orders right now'}
           </p>
         </div>
       )}
