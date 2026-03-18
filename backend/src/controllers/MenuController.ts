@@ -92,16 +92,26 @@ export const createItem = async (req: Request, res: Response): Promise<void> => 
 // @GET /api/menu/items/:restaurantId
 export const getItems = async (req: Request, res: Response): Promise<void> => {
   try {
-    const items = await MenuItem.find({
+    const { category } = req.query;
+    
+      const filter: any = {
       restaurant: req.params.restaurantId,
-     // isAvailable: true,
-    }).populate('category', 'name').sort({ sortOrder: 1 });
+    };
+
+    if (category) {
+      filter.category = category;
+    }
+
+    const items = await MenuItem.find(filter)
+      .populate('category', 'name')
+      .sort({ sortOrder: 1 });
 
     res.status(200).json({ success: true, items });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
+
 
 // @PUT /api/menu/items/:id
 export const updateItem = async (req: Request, res: Response): Promise<void> => {
@@ -147,20 +157,18 @@ export const deleteItem = async (req: Request, res: Response): Promise<void> => 
 // @PUT /api/menu/items/:id/toggle
 export const toggleAvailability = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { isAvailable } = req.body;
+            
+    const item = await MenuItem.findById(req.params.id);
     
-    const item = await MenuItem.findByIdAndUpdate(
+    const newStatus = !(item?.isAvailable as boolean);
+ 
+    const updatedItem = await MenuItem.findByIdAndUpdate(
       req.params.id,
-      { isAvailable: isAvailable === 'true' },
+      { isAvailable: newStatus },
       { new: true }
     );
 
-    if (!item) {
-      res.status(404).json({ success: false, message: 'Item not found' });
-      return;
-    }
-
-    res.status(200).json({ success: true, message: 'Toggled!', item });
+     res.status(200).json({ success: true, message: 'Toggled!', item: updatedItem });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

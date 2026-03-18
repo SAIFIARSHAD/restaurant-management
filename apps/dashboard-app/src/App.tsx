@@ -13,6 +13,7 @@ import EmployeesPage from "./pages/dashboard/EmployeesPage";
 import ExpensesPage from "./pages/dashboard/ExpensesPage";
 import ReportsPage from "./pages/dashboard/ReportsPage";
 import AnalyticsPage from "./pages/dashboard/AnalyticsPage";
+import RecipePage from "./pages/dashboard/RecipePage";
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
   const { isAuthenticated } = useAuthStore();
@@ -43,6 +44,7 @@ export default function App() {
                     <Route path="expenses" element={<ExpensesPage />} />
                     <Route path="reports" element={<ReportsPage />} />
                     <Route path="analytics" element={<AnalyticsPage />} />
+                    <Route path="recipes" element={<RecipePage />} />
                   </Routes>
                 </MainLayout>
               </ProtectedRoute>

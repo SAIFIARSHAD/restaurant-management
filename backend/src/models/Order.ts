@@ -7,6 +7,7 @@ export interface IOrderItem {
   quantity: number;
   notes?: string;
   station?: 'grill' | 'drinks' | 'kitchen' | 'dessert' | 'other';
+  cancellationReason?: string;
 }
 
 export interface IOrder extends Document {
@@ -52,7 +53,8 @@ const OrderSchema = new Schema<IOrder>(
     status: {
       type: String,
       enum: ['pending', 'accepted', 'preparing', 'ready', 'served', 'cancelled'],
-      default: 'pending'
+      default: 'pending',
+      cancellationReason: { type: String, default: '' },
     },
     paymentStatus: {
       type: String,
@@ -70,7 +72,10 @@ const OrderSchema = new Schema<IOrder>(
     notes: { type: String },
     createdBy: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     servedAt: { type: Date }
+    
   },
+
+  
   { timestamps: true }
 );
 

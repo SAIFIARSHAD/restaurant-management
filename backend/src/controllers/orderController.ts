@@ -159,8 +159,20 @@ export const getOrderById = async (req: Request, res: Response) => {
 // Update Order Status
 export const updateOrderStatus = async (req: Request, res: Response) => {
   try {
-    const { status } = req.body;
+    const { status, cancellationReason } = req.body;
     const restaurantId = getRestaurantId(req);
+      if (status === 'cancelled' && !cancellationReason?.trim()) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'Cancellation reason required!' 
+      });
+    }
+
+    const updateData: any = { 
+      status,
+      ...(status === 'served' ? { servedAt: new Date() } : {}),
+      ...(status === 'cancelled' ? { cancellationReason } : {}),
+    };
 
     const order = await Order.findByIdAndUpdate(
       req.params.id,

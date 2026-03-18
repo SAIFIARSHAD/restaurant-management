@@ -10,12 +10,14 @@ import {
   Wallet,
   BarChart2,
   PieChart,
+  BookOpen
 } from "lucide-react";
 
 const menuItems = [
   { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
   { label: "Orders", to: "/dashboard/orders", icon: ShoppingBag },
   { label: "Menu", to: "/dashboard/menu", icon: UtensilsCrossed },
+  { label: 'Recipes', to: '/dashboard/recipes',    icon: BookOpen},
   { label: "Tables", to: "/dashboard/tables", icon: TableProperties },
   { label: "Inventory", to: "/dashboard/inventory", icon: Package },
   { label: "Vendors", to: "/dashboard/vendors", icon: Handshake },
