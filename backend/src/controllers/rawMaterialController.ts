@@ -87,30 +87,57 @@ export const updateRawMaterial = async (req: Request, res: Response) => {
   }
 };
 
-// Update Stock (Add/Remove stock manually)
 export const updateStock = async (req: Request, res: Response) => {
   try {
-    const { quantity, type } = req.body;
-    // type: 'add' or 'remove'
+    const { quantity, type, reason } = req.body;
+    // type: 'add' | 'remove' | 'wastage' | 'expiry'
 
     const material = await RawMaterial.findById(req.params.id);
     if (!material) {
       return res.status(404).json({ success: false, message: 'Raw material not found' });
     }
 
-    if (type === 'add') {
-      material.currentStock += quantity;
-      material.lastPurchaseDate = new Date();
-    } else if (type === 'remove') {
-      if (material.currentStock < quantity) {
-        return res.status(400).json({ success: false, message: 'Insufficient stock!' });
-      }
-      material.currentStock -= quantity;
+    let message = '';
+
+    switch (type) {
+
+      case 'add':
+        material.currentStock += quantity;
+        material.lastPurchaseDate = new Date();
+        message = 'Stock added successfully';
+        break;
+
+      case 'remove':
+        if (material.currentStock < quantity) {
+          return res.status(400).json({ success: false, message: 'Insufficient stock!' });
+        }
+        material.currentStock -= quantity;
+        message = 'Stock removed successfully';
+        break;
+
+      case 'wastage':
+        
+        material.currentStock = Math.max(0, material.currentStock - quantity);
+        message = 'Wastage recorded successfully';
+        break;
+
+      case 'expiry':
+        
+        material.currentStock = Math.max(0, material.currentStock - quantity);
+        message = 'Expiry deduction recorded successfully';
+        break;
+
+      default:
+        return res.status(400).json({
+          success: false,
+          message: 'Invalid type! Allowed: add | remove | wastage | expiry'
+        });
     }
 
     await material.save();
 
-    res.json({ success: true, message: `Stock ${type === 'add' ? 'added' : 'removed'}!`, material });
+    res.json({ success: true, message, material, reason });
+
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

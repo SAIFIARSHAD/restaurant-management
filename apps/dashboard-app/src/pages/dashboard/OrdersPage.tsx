@@ -109,7 +109,7 @@ export default function OrdersPage() {
         }}
         className="bg-zinc-900 text-white text-sm font-semibold border-none outline-none cursor-pointer px-2 py-1 rounded-lg hover:bg-zinc-800 focus:bg-zinc-800 focus:text-white focus:outline-none transition-all"
       >
-        <option value="">All</option>
+        <option value="">Floor/Section</option>
         {floors.map((floor) => (
           <option key={floor} value={floor}>{floor}</option>
         ))}

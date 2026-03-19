@@ -12,19 +12,20 @@ import {
   PieChart,
   BookOpen
 } from "lucide-react";
+import LowStockBadge from "../inventory/LowStockBadge"; 
 
 const menuItems = [
-  { label: "Dashboard", to: "/dashboard", icon: LayoutDashboard },
-  { label: "Orders", to: "/dashboard/orders", icon: ShoppingBag },
-  { label: "Menu", to: "/dashboard/menu", icon: UtensilsCrossed },
-  { label: 'Recipes', to: '/dashboard/recipes',    icon: BookOpen},
-  { label: "Tables", to: "/dashboard/tables", icon: TableProperties },
-  { label: "Inventory", to: "/dashboard/inventory", icon: Package },
-  { label: "Vendors", to: "/dashboard/vendors", icon: Handshake },
-  { label: "Employees", to: "/dashboard/employees", icon: Users },
-  { label: "Expenses", to: "/dashboard/expenses", icon: Wallet },
-  { label: "Reports", to: "/dashboard/reports", icon: BarChart2 },
-  { label: "Analytics", to: "/dashboard/analytics", icon: PieChart },
+  { label: "Dashboard",  to: "/dashboard",            icon: LayoutDashboard },
+  { label: "Orders",     to: "/dashboard/orders",     icon: ShoppingBag },
+  { label: "Menu",       to: "/dashboard/menu",       icon: UtensilsCrossed },
+  { label: "Recipes",    to: "/dashboard/recipes",    icon: BookOpen },
+  { label: "Tables",     to: "/dashboard/tables",     icon: TableProperties },
+  { label: "Inventory",  to: "/dashboard/inventory",  icon: Package },
+  { label: "Vendors",    to: "/dashboard/vendors",    icon: Handshake },
+  { label: "Employees",  to: "/dashboard/employees",  icon: Users },
+  { label: "Expenses",   to: "/dashboard/expenses",   icon: Wallet },
+  { label: "Reports",    to: "/dashboard/reports",    icon: BarChart2 },
+  { label: "Analytics",  to: "/dashboard/analytics",  icon: PieChart },
 ];
 
 export default function Sidebar() {
@@ -59,7 +60,10 @@ export default function Sidebar() {
             }
           >
             <item.icon size={17} className="shrink-0" />
-            <span>{item.label}</span>
+            <span className="flex-1">{item.label}</span>
+
+            
+            {item.label === "Inventory" && <LowStockBadge />}
           </NavLink>
         ))}
       </nav>
