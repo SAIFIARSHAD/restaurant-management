@@ -30,7 +30,6 @@ import { auditLogger } from './middleware/auditLogger';
 import auditRoutes from './routes/auditRoutes';
 import { errorHandler } from './middleware/errorHandler';
 import { createIndexes } from './config/indexes';
-
 const app = express();
 const httpServer = createServer(app);
 

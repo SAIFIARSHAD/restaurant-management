@@ -21,11 +21,35 @@ export const createRecipe = async (req: Request, res: Response) => {
     const { menuItem, ingredients } = req.body;
 
     // Check duplicate recipe
-    const existing = await Recipe.findOne({ menuItem, restaurant: restaurantId });
+    const existing = await Recipe.findOne({ menuItem, restaurant: restaurantId, isActive: true });
     if (existing) {
       return res.status(400).json({
         success: false,
         message: 'Recipe already exists for this item. Use update instead.'
+      });
+    }
+
+   
+    const softDeleted = await Recipe.findOne({
+      menuItem,
+      restaurant: restaurantId,
+      isActive: false
+    });
+
+    if (softDeleted) {
+      softDeleted.ingredients = ingredients;
+      softDeleted.isActive = true;
+      await softDeleted.save();
+
+      const populated = await softDeleted.populate([
+        { path: 'menuItem', select: 'name price' },
+        { path: 'ingredients.rawMaterial', select: 'name unit currentStock' }
+      ]);
+
+      return res.status(201).json({
+        success: true,
+        message: 'Recipe restored and updated!',
+        recipe: populated
       });
     }
 
@@ -41,6 +65,7 @@ export const createRecipe = async (req: Request, res: Response) => {
     ]);
 
     res.status(201).json({ success: true, message: 'Recipe created!', recipe: populated });
+
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

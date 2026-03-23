@@ -7,6 +7,7 @@ import { io } from '../server';
 import Recipe from '../models/Recipe';
 import RawMaterial from '../models/RawMaterial';
 import { calculateDeduction } from '../utils/unitConverter';
+import RawMaterialLog from '../models/RawMaterialLog';
 
 
 // Helper — restaurantId
@@ -62,21 +63,38 @@ export const createOrder = async (req: Request, res: Response) => {
     const tax = Math.round(subtotal * 0.05 * 100) / 100;
     const totalAmount = subtotal + tax;
 
-    const count = await Order.countDocuments({ restaurant: restaurantId });
-    const orderNumber = `ORD-${String(count + 1).padStart(4, '0')}`;
+     // Order number generate — safe way
+const lastOrder = await Order.findOne({ restaurant: restaurantId })
+  .sort({ createdAt: -1 })
+  .select('orderNumber');
 
-    const order = await Order.create({
-      restaurant: restaurantId,
-      table: tableId,
-      tableNumber: table.tableNumber,
-      orderNumber,
-      items: orderItems,
-      subtotal,
-      tax,
-      totalAmount,
-      notes,
-      createdBy: userId
-    });
+let nextNum = 1;
+if (lastOrder?.orderNumber) {
+  const lastNum = parseInt(lastOrder.orderNumber.replace('ORD-', '')) || 0;
+  nextNum = lastNum + 1;
+}
+
+let orderNumber = `ORD-${String(nextNum).padStart(4, '0')}`;
+
+// Collision check — double safety
+const exists = await Order.findOne({ orderNumber });
+if (exists) {
+  orderNumber = `ORD-${String(nextNum + 1).padStart(4, '0')}`;
+}
+
+const order = await Order.create({
+  restaurant: restaurantId,
+  table: tableId,
+  tableNumber: table.tableNumber,
+  orderNumber,  
+  items: orderItems,
+  subtotal,
+  tax,
+  totalAmount,
+  notes,
+  createdBy: userId
+});
+
 
     await Table.findByIdAndUpdate(tableId, { status: 'occupied' });
 
@@ -161,22 +179,29 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
   try {
     const { status, cancellationReason } = req.body;
     const restaurantId = getRestaurantId(req);
-      if (status === 'cancelled' && !cancellationReason?.trim()) {
-      return res.status(400).json({ 
-        success: false, 
-        message: 'Cancellation reason required!' 
+
+    if (status === 'cancelled' && !cancellationReason?.trim()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Cancellation reason required!'
       });
     }
 
-    const updateData: any = { 
-      status,
-      ...(status === 'served' ? { servedAt: new Date() } : {}),
-      ...(status === 'cancelled' ? { cancellationReason } : {}),
-    };
+    
+    const existingOrder = await Order.findById(req.params.id);
+    if (!existingOrder) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
+
+    const previousStatus = existingOrder.status; 
 
     const order = await Order.findByIdAndUpdate(
       req.params.id,
-      { status, ...(status === 'served' ? { servedAt: new Date() } : {}) },
+      {
+        status,
+        ...(status === 'served' ? { servedAt: new Date() } : {}),
+        ...(status === 'cancelled' ? { cancellationReason } : {}),
+      },
       { new: true }
     );
 
@@ -186,16 +211,17 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
       await Table.findByIdAndUpdate(order.table, { status: 'available' });
     }
 
-    // Do emit 
-    if (restaurantId) {
-      const payload = {
-        orderId: order._id,
-        orderNumber: order.orderNumber,
-        tableNumber: order.tableNumber,
-        status: order.status
-      };
+    const payload = {
+      orderId: order._id,
+      orderNumber: order.orderNumber,
+      tableNumber: order.tableNumber,
+      status: order.status
+    };
 
-  if (status === 'accepted') {
+    if (restaurantId) {
+
+      if (status === 'preparing' && previousStatus !== 'preparing') {
+
   const fullOrder = await Order.findById(req.params.id);
 
   if (fullOrder) {
@@ -205,48 +231,75 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
         isActive: true
       });
 
-      if (recipe) {
-        for (const ingredient of recipe.ingredients) {
-          const rawMaterial = await RawMaterial.findById(ingredient.rawMaterial);
-          if (!rawMaterial) continue;
+      if (!recipe) {
+        console.log(` No recipe found for menuItem: ${item.menuItem}`);
+        continue;
+      }
 
-          // Unit conversion + deduction
-          const deductAmount = calculateDeduction(
-            ingredient.quantity,
-            ingredient.unit,
-            rawMaterial.unit,
-            item.quantity
-          );
+      for (const ingredient of recipe.ingredients) {
+        const rawMaterial = await RawMaterial.findById(ingredient.rawMaterial);
+        if (!rawMaterial) continue;
 
-          await RawMaterial.findByIdAndUpdate(
-            ingredient.rawMaterial,
-            { $inc: { currentStock: -deductAmount } }
-          );
+        const deductAmount = calculateDeduction(
+          ingredient.quantity,
+          ingredient.unit,
+          rawMaterial.unit,
+          item.quantity
+        );
 
-          // Low Stock Alert — Check after deduction
-          const updatedMaterial = await RawMaterial.findById(ingredient.rawMaterial);
-          if (updatedMaterial && updatedMaterial.currentStock <= updatedMaterial.minThreshold) {
-            io.to(`restaurant_${restaurantId}`).emit('low_stock_alert', {
-              materialId: updatedMaterial._id,
-              name: updatedMaterial.name,
-              currentStock: updatedMaterial.currentStock,
-              minThreshold: updatedMaterial.minThreshold,
-              unit: updatedMaterial.unit,
-              message: ` Low Stock! ${updatedMaterial.name} sirf ${updatedMaterial.currentStock} ${updatedMaterial.unit} bacha hai!`
-            });
-          }
+        
+        const previousStock = rawMaterial.currentStock;
+
+        
+        await RawMaterial.findByIdAndUpdate(
+          ingredient.rawMaterial,
+          { $inc: { currentStock: -deductAmount } }
+        );
+
+        console.log(` Stock deducted: ${rawMaterial.name} → -${deductAmount} ${rawMaterial.unit}`);
+
+        
+        const updatedMaterial = await RawMaterial.findById(ingredient.rawMaterial);
+
+        await RawMaterialLog.create({
+          restaurant: restaurantId,
+          rawMaterial: ingredient.rawMaterial,
+          type: 'auto_deduct',
+          quantity: deductAmount,
+          unit: rawMaterial.unit,
+          previousStock: previousStock,
+          newStock: updatedMaterial?.currentStock ?? 0,
+          reason: `Order #${fullOrder.orderNumber} — ${item.name} x${item.quantity}`,
+          orderId: fullOrder._id,
+          createdBy: undefined,
+        });
+
+        // Low Stock Alert
+        if (updatedMaterial && updatedMaterial.currentStock <= updatedMaterial.minThreshold) {
+          io.to(`restaurant_${restaurantId}`).emit('low_stock_alert', {
+            materialId: updatedMaterial._id,
+            name: updatedMaterial.name,
+            currentStock: updatedMaterial.currentStock,
+            minThreshold: updatedMaterial.minThreshold,
+            unit: updatedMaterial.unit,
+            message: ` Low Stock! ${updatedMaterial.name} sirf ${updatedMaterial.currentStock} ${updatedMaterial.unit} bacha hai!`
+          });
         }
       }
     }
   }
-  emitOrderAccepted(io, restaurantId, payload);
+
+  io.to(`restaurant_${restaurantId}`).emit('order_preparing', payload);
 }
 
-      if (status === 'ready') emitOrderReady(io, restaurantId, payload);
+
+      if (status === 'accepted') emitOrderAccepted(io, restaurantId, payload);
+      if (status === 'ready')    emitOrderReady(io, restaurantId, payload);
       if (status === 'cancelled') emitOrderCancelled(io, restaurantId, payload);
     }
 
     res.json({ success: true, message: 'Order status updated!', order });
+
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

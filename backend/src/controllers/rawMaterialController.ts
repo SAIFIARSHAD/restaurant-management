@@ -9,6 +9,7 @@ const getRestaurantId = (req: Request) => {
   if (restaurant._id) return restaurant._id.toString();
   return restaurant.toString();
 };
+import RawMaterialLog from '../models/RawMaterialLog';
 
 // Create Raw Material
 export const createRawMaterial = async (req: Request, res: Response) => {
@@ -87,20 +88,22 @@ export const updateRawMaterial = async (req: Request, res: Response) => {
   }
 };
 
+// updateStock function mein — har case ke baad log save karo:
 export const updateStock = async (req: Request, res: Response) => {
   try {
     const { quantity, type, reason } = req.body;
-    // type: 'add' | 'remove' | 'wastage' | 'expiry'
+    const restaurantId = getRestaurantId(req);
+    const userId = (req as any).user?.id;
 
     const material = await RawMaterial.findById(req.params.id);
     if (!material) {
       return res.status(404).json({ success: false, message: 'Raw material not found' });
     }
 
+    const previousStock = material.currentStock; 
     let message = '';
 
     switch (type) {
-
       case 'add':
         material.currentStock += quantity;
         material.lastPurchaseDate = new Date();
@@ -116,13 +119,11 @@ export const updateStock = async (req: Request, res: Response) => {
         break;
 
       case 'wastage':
-        
         material.currentStock = Math.max(0, material.currentStock - quantity);
         message = 'Wastage recorded successfully';
         break;
 
       case 'expiry':
-        
         material.currentStock = Math.max(0, material.currentStock - quantity);
         message = 'Expiry deduction recorded successfully';
         break;
@@ -135,6 +136,19 @@ export const updateStock = async (req: Request, res: Response) => {
     }
 
     await material.save();
+
+    
+    await RawMaterialLog.create({
+      restaurant: restaurantId,
+      rawMaterial: material._id,
+      type,
+      quantity,
+      unit: material.unit,
+      previousStock,
+      newStock: material.currentStock,
+      reason: reason || '',
+      createdBy: userId || null,
+    });
 
     res.json({ success: true, message, material, reason });
 
