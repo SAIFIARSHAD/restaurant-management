@@ -4,7 +4,7 @@ import Attendance from '../models/Attendance';
 import Employee from '../models/Employee';
 import { getClientIp } from '../middleware/ipCheckMiddleware';
 
-// LOGIN → ATTENDANCE START
+// LOGIN  ATTENDANCE START
 export const markLogin = async (req: Request, res: Response) => {
   try {
     const restaurantId = (req as any).user.restaurantId;
@@ -63,7 +63,7 @@ export const markLogin = async (req: Request, res: Response) => {
   }
 };
 
-// LOGOUT → ATTENDANCE END 
+ 
 export const markLogout = async (req: Request, res: Response) => {
   try {
     const restaurantId = (req as any).user.restaurantId;
@@ -92,7 +92,7 @@ export const markLogout = async (req: Request, res: Response) => {
     const now = new Date();
     const loginTime = new Date(attendance.loginTime);
 
-    // calculate Shift duration (minutes)
+    
     const shiftDuration = Math.floor((now.getTime() - loginTime.getTime()) / 60000);
 
     // calculate Overtime (480 min = After 8 hours )
@@ -122,7 +122,7 @@ export const markLogout = async (req: Request, res: Response) => {
   }
 };
 
-// HEARTBEAT → KEEP ALIVE 
+
 export const heartbeat = async (req: Request, res: Response) => {
   try {
     const restaurantId = (req as any).user.restaurantId;
@@ -148,7 +148,7 @@ export const heartbeat = async (req: Request, res: Response) => {
   }
 };
 
-// GET TODAY ATTENDANCE 
+ 
 export const getTodayAttendance = async (req: Request, res: Response) => {
   try {
     const restaurantId = (req as any).user.restaurantId;
@@ -173,7 +173,7 @@ export const getTodayAttendance = async (req: Request, res: Response) => {
   }
 };
 
-// GET EMPLOYEE ATTENDANCE HISTORY
+
 export const getEmployeeAttendance = async (req: Request, res: Response) => {
   try {
     const restaurantId = (req as any).user.restaurantId;
@@ -190,7 +190,7 @@ export const getEmployeeAttendance = async (req: Request, res: Response) => {
     date: { $gte: start, $lte: end },
     }).sort({ date: -1 });
 
-    // Calculate Summary
+  
     const totalDays = attendance.length;
     const totalMinutes = attendance.reduce((s, a) => s + (a.shiftDuration || 0), 0);
     const totalOvertime = attendance.reduce((s, a) => s + (a.overtimeMinutes || 0), 0);

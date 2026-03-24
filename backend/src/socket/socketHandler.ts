@@ -57,3 +57,12 @@ export const emitToStation = (
   const room = `kds_${restaurantId}_${stationType}`;
   io.to(room).emit(event, data);
 };
+
+// Table Events
+export const emitTableStatusChanged = (io: Server, restaurantId: string, data: any) => {
+  io.to(`restaurant_${restaurantId}`).emit('table_status_changed', data);
+};
+
+export const emitTablesMerged = (io: Server, restaurantId: string, data: any) => {
+  io.to(`restaurant_${restaurantId}`).emit('tables_merged', data);
+};
