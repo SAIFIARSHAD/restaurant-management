@@ -1,119 +1,188 @@
 import { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import Attendance from '../models/Attendance';
-import Employee from '../models/Employee';
+import Employee   from '../models/Employee';
+import Restaurant from '../models/Restaurant';
 import { getClientIp } from '../middleware/ipCheckMiddleware';
 
-// LOGIN  ATTENDANCE START
+const toDateOnly = (d: Date): Date => {
+  const nd = new Date(d);
+  nd.setHours(0, 0, 0, 0);
+  return nd;
+};
+
+const recalculateDayStatus = (
+  totalMinutes: number,
+  payrollSettings: {
+    shiftHours: number;
+    halfDayThreshold: number;
+    overtimeBufferMinutes: number;
+  }
+): { dayStatus: 'present' | 'half-day' | 'absent'; overtimeMinutes: number } => {
+  const totalHours        = totalMinutes / 60;
+  const shiftMinutes      = payrollSettings.shiftHours * 60;
+  const overtimeThreshold = shiftMinutes + payrollSettings.overtimeBufferMinutes;
+
+  let dayStatus: 'present' | 'half-day' | 'absent' = 'absent';
+  if (totalHours >= payrollSettings.shiftHours) {
+    dayStatus = 'present';
+  } else if (totalHours >= payrollSettings.halfDayThreshold) {
+    dayStatus = 'half-day';
+  }
+
+  const overtimeMinutes = totalMinutes > overtimeThreshold
+    ? totalMinutes - overtimeThreshold
+    : 0;
+
+  return { dayStatus, overtimeMinutes: Math.floor(overtimeMinutes) };
+};
+
+
 export const markLogin = async (req: Request, res: Response) => {
   try {
-    const restaurantId = (req as any).user.restaurantId;
-    const userId = (req as any).user.id;
-    const clientIp = getClientIp(req);
+    const restaurantId = (req as any).user.restaurantId as string;
+    const userId       = (req as any).user.id           as string;
+    const clientIp     = getClientIp(req);
 
-    // Find Employee 
     const employee = await Employee.findOne({
-      userId: new mongoose.Types.ObjectId(userId),
+      userId:     new mongoose.Types.ObjectId(userId),
       restaurant: new mongoose.Types.ObjectId(restaurantId),
-      isActive: true,
+      isActive:   true,
     });
-
     if (!employee) {
       return res.status(404).json({ success: false, message: 'Employee not found' });
     }
 
-    // Today already login ?
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const now      = new Date();
+    const dateOnly = toDateOnly(now);
 
-    const existingActive = await Attendance.findOne({
-      employee: employee._id,
+    
+    let attendance = await Attendance.findOne({
+      employee:   employee._id,
       restaurant: new mongoose.Types.ObjectId(restaurantId),
-      date: { $gte: today },
-      status: 'active',
+      date:       dateOnly,
     });
 
-    if (existingActive) {
-      return res.status(400).json({
-        success: false,
-        message: 'Already logged in',
-        data: existingActive,
+    if (!attendance) {
+      attendance = await Attendance.create({
+        restaurant:    new mongoose.Types.ObjectId(restaurantId),
+        employee:      employee._id,
+        date:          dateOnly,
+        sessions:      [],
+        totalMinutes:  0,
+        overtimeMinutes: 0,
+        dayStatus:     'absent',
+        lastHeartbeat: now,
+        status:        'active',
       });
     }
 
-    // Attendance create 
-    const now = new Date();
-    const attendance = await Attendance.create({
-      restaurant: restaurantId,
-      employee: employee._id,
-      date: now,
-      loginTime: now,
-      lastHeartbeat: now,
-      loginIp: clientIp,
-      status: 'active',
-    });
+    const hasActiveSession = attendance.sessions.some(
+      s => s.loginTime && !s.logoutTime
+    );
+    if (hasActiveSession) {
+      return res.status(400).json({
+        success: false,
+        message: 'Already logged in — please logout first',
+      });
+    }
 
-    res.status(201).json({
+    attendance.sessions.push({
+      loginTime:       now,
+      logoutTime:      undefined,
+      durationMinutes: 0,
+      loginIp:         clientIp,
+    });
+    attendance.lastHeartbeat = now;
+    attendance.status        = 'active';
+    await attendance.save();
+
+    res.status(200).json({
       success: true,
-      message: ` Login recorded at ${now.toLocaleTimeString('en-IN')}`,
-      data: attendance,
+      message: `Login recorded at ${now.toLocaleTimeString('en-IN')}`,
+      data:    attendance,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error', error });
   }
 };
 
- 
+
 export const markLogout = async (req: Request, res: Response) => {
   try {
-    const restaurantId = (req as any).user.restaurantId;
-    const userId = (req as any).user.id;
+    const restaurantId = (req as any).user.restaurantId as string;
+    const userId       = (req as any).user.id           as string;
 
     const employee = await Employee.findOne({
-      userId: new mongoose.Types.ObjectId(userId),
+      userId:     new mongoose.Types.ObjectId(userId),
       restaurant: new mongoose.Types.ObjectId(restaurantId),
     });
-
     if (!employee) {
       return res.status(404).json({ success: false, message: 'Employee not found' });
     }
 
-    // Find Active attendance
-    const attendance = await Attendance.findOne({
-      employee: employee._id,
-      restaurant: new mongoose.Types.ObjectId(restaurantId),
-      status: 'active',
-    });
+    const now      = new Date();
+    const dateOnly = toDateOnly(now);
 
+    const attendance = await Attendance.findOne({
+      employee:   employee._id,
+      restaurant: new mongoose.Types.ObjectId(restaurantId),
+      date:       dateOnly,
+      status:     'active',
+    });
     if (!attendance) {
       return res.status(404).json({ success: false, message: 'No active session found' });
     }
 
-    const now = new Date();
-    const loginTime = new Date(attendance.loginTime);
+    const activeSession = attendance.sessions
+      .slice()
+      .reverse()
+      .find(s => !s.logoutTime);
+
+    if (!activeSession) {
+      return res.status(400).json({ success: false, message: 'No active session found' });
+    }
+
+    const sessionMinutes = Math.floor(
+      (now.getTime() - new Date(activeSession.loginTime).getTime()) / 60000
+    );
+    activeSession.logoutTime      = now;
+    activeSession.durationMinutes = sessionMinutes;
 
     
-    const shiftDuration = Math.floor((now.getTime() - loginTime.getTime()) / 60000);
+    const totalMinutes = attendance.sessions.reduce(
+      (sum, s) => sum + (s.durationMinutes || 0), 0
+    );
 
-    // calculate Overtime (480 min = After 8 hours )
-    const overtimeMinutes = shiftDuration > 480 ? shiftDuration - 480 : 0;
+    
+    const restaurant      = await Restaurant.findById(restaurantId);
+    const payrollSettings = restaurant?.payrollSettings ?? {
+      shiftHours:            9,
+      halfDayThreshold:      4.5,
+      overtimeBufferMinutes: 20,
+    };
 
-    await Attendance.findByIdAndUpdate(attendance._id, {
-      $set: {
-        logoutTime: now,
-        shiftDuration,
-        overtimeMinutes,
-        status: 'completed',
-      },
-    });
+    const { dayStatus, overtimeMinutes } = recalculateDayStatus(
+      totalMinutes,
+      payrollSettings
+    );
+
+    attendance.totalMinutes    = totalMinutes;
+    attendance.overtimeMinutes = overtimeMinutes;
+    attendance.dayStatus       = dayStatus;
+    attendance.status          = 'completed';
+    await attendance.save();
+
+    const hrs  = Math.floor(sessionMinutes / 60);
+    const mins = sessionMinutes % 60;
 
     res.status(200).json({
       success: true,
       message: `Logout recorded at ${now.toLocaleTimeString('en-IN')}`,
       data: {
-        loginTime: attendance.loginTime,
-        logoutTime: now,
-        shiftDuration: `${Math.floor(shiftDuration / 60)}h ${shiftDuration % 60}m`,
+        sessionDuration: `${hrs}h ${mins}m`,
+        totalToday:      `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`,
+        dayStatus,
         overtimeMinutes,
       },
     });
@@ -122,23 +191,25 @@ export const markLogout = async (req: Request, res: Response) => {
   }
 };
 
-
 export const heartbeat = async (req: Request, res: Response) => {
   try {
-    const restaurantId = (req as any).user.restaurantId;
-    const userId = (req as any).user.id;
+    const restaurantId = (req as any).user.restaurantId as string;
+    const userId       = (req as any).user.id           as string;
 
     const employee = await Employee.findOne({
-      userId: new mongoose.Types.ObjectId(userId),
+      userId:     new mongoose.Types.ObjectId(userId),
       restaurant: new mongoose.Types.ObjectId(restaurantId),
     });
-
     if (!employee) {
       return res.status(404).json({ success: false, message: 'Employee not found' });
     }
 
     await Attendance.findOneAndUpdate(
-      { employee: employee._id, status: 'active' },
+      {
+        employee:   employee._id,
+        restaurant: new mongoose.Types.ObjectId(restaurantId),
+        status:     'active',
+      },
       { $set: { lastHeartbeat: new Date() } }
     );
 
@@ -148,58 +219,62 @@ export const heartbeat = async (req: Request, res: Response) => {
   }
 };
 
- 
 export const getTodayAttendance = async (req: Request, res: Response) => {
   try {
-    const restaurantId = (req as any).user.restaurantId;
+    const restaurantId = (req as any).user.restaurantId as string;
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    const today    = toDateOnly(new Date());
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
     const attendance = await Attendance.find({
       restaurant: new mongoose.Types.ObjectId(restaurantId),
-      date: { $gte: today, $lt: tomorrow },
+      date:       { $gte: today, $lt: tomorrow },
     }).populate('employee', 'name role phone');
 
     res.status(200).json({
       success: true,
-      count: attendance.length,
-      data: attendance,
+      count:   attendance.length,
+      data:    attendance,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error', error });
   }
 };
 
-
 export const getEmployeeAttendance = async (req: Request, res: Response) => {
   try {
-    const restaurantId = (req as any).user.restaurantId;
-    const { id } = req.params;
+    const restaurantId = (req as any).user.restaurantId as string;
+    const { id }       = req.params;
     const { startDate, endDate } = req.query;
 
-    const start = startDate ? new Date(startDate as string) : new Date(new Date().setDate(1));
-    const end = endDate ? new Date(endDate as string) : new Date();
+    const start = startDate
+      ? new Date(startDate as string)
+      : new Date(new Date().setDate(1));
+    const end   = endDate
+      ? new Date(endDate as string)
+      : new Date();
     end.setHours(23, 59, 59, 999);
 
     const attendance = await Attendance.find({
-    restaurant: new mongoose.Types.ObjectId(restaurantId as string),
-    employee: new mongoose.Types.ObjectId(id as string),   
-    date: { $gte: start, $lte: end },
+      restaurant: new mongoose.Types.ObjectId(restaurantId),
+      employee:   new mongoose.Types.ObjectId(id),
+      date:       { $gte: start, $lte: end },
     }).sort({ date: -1 });
 
-  
-    const totalDays = attendance.length;
-    const totalMinutes = attendance.reduce((s, a) => s + (a.shiftDuration || 0), 0);
-    const totalOvertime = attendance.reduce((s, a) => s + (a.overtimeMinutes || 0), 0);
+    const totalDays     = attendance.length;
+    const fullDays      = attendance.filter(a => a.dayStatus === 'present').length;
+    const halfDays      = attendance.filter(a => a.dayStatus === 'half-day').length;
+    const totalMinutes  = attendance.reduce((s, a) => s + a.totalMinutes,    0);
+    const totalOvertime = attendance.reduce((s, a) => s + a.overtimeMinutes, 0);
 
     res.status(200).json({
       success: true,
       summary: {
         totalDays,
-        totalHours: `${Math.floor(totalMinutes / 60)}h ${totalMinutes % 60}m`,
+        fullDays,
+        halfDays,
+        totalHours:    `${Math.floor(totalMinutes  / 60)}h ${totalMinutes  % 60}m`,
         totalOvertime: `${Math.floor(totalOvertime / 60)}h ${totalOvertime % 60}m`,
       },
       data: attendance,

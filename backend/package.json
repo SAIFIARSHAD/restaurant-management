@@ -7,7 +7,8 @@
         "dev": "nodemon --exec ts-node src/server.ts",
         "build": "tsc",
         "start": "node dist/server.js",
-        "seed": "ts-node src/seed.ts"
+        "seed": "ts-node src/seed.ts",
+        "migrate:attendance": "ts-node src/scripts/migrateAttendance.ts"
     },
     "keywords": [],
     "author": "",
@@ -55,4 +56,5 @@
         "ts-node": "^10.9.2",
         "typescript": "^5.9.3"
     }
+
 }

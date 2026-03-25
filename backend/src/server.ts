@@ -29,7 +29,9 @@ import { helmetConfig, sanitize, hppProtect, generalLimiter, authLimiter } from 
 import { auditLogger } from './middleware/auditLogger';
 import auditRoutes from './routes/auditRoutes';
 import { errorHandler } from './middleware/errorHandler';
+import settingsRoutes from './routes/settingsRoutes';
 import { createIndexes } from './config/indexes';
+
 const app = express();
 const httpServer = createServer(app);
 
@@ -97,6 +99,7 @@ app.use('/api/employees', employeeRoutes);
 app.use('/api/payroll', payrollRoutes);
 app.use('/api/expenses', expenseRoutes);
 app.use('/api/audit-logs', auditRoutes);
+app.use('/api/settings', settingsRoutes);
 
 // 404 Handler 
 app.use('/{*any}', (req, res) => {  

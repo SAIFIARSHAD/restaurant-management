@@ -14,23 +14,24 @@ export interface IEmployee extends Document {
     ifscCode: string;
     bankName: string;
   };
+  overtimeEligible: boolean;   
   isActive: boolean;
-  userId: mongoose.Types.ObjectId; 
+  userId: mongoose.Types.ObjectId;
   createdAt: Date;
 }
 
 const EmployeeSchema = new Schema<IEmployee>(
   {
     restaurant: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
-    name: { type: String, required: true, trim: true },
-    email: { type: String, required: true, lowercase: true },
-    phone: { type: String, required: true },
+    name:       { type: String, required: true, trim: true },
+    email:      { type: String, required: true, lowercase: true },
+    phone:      { type: String, required: true },
     role: {
       type: String,
       enum: ['manager', 'cashier', 'kitchen', 'waiter', 'delivery'],
       required: true,
     },
-    salary: { type: Number, required: true },
+    salary:     { type: Number, required: true },
     salaryType: {
       type: String,
       enum: ['monthly', 'daily', 'hourly'],
@@ -39,11 +40,12 @@ const EmployeeSchema = new Schema<IEmployee>(
     joiningDate: { type: Date, required: true },
     bankDetails: {
       accountNumber: { type: String, default: '' },
-      ifscCode: { type: String, default: '' },
-      bankName: { type: String, default: '' },
+      ifscCode:      { type: String, default: '' },
+      bankName:      { type: String, default: '' },
     },
+    overtimeEligible: { type: Boolean, default: false },  
     isActive: { type: Boolean, default: true },
-    userId: { type: Schema.Types.ObjectId, ref: 'User' },
+    userId:   { type: Schema.Types.ObjectId, ref: 'User' },
   },
   { timestamps: true }
 );

@@ -15,58 +15,60 @@ const getDaysInMonth = (month: number, year: number): number => {
 export const calculateSalary = async (req: Request, res: Response) => {
   try {
     const restaurantId = (req as any).user.restaurantId as string;
-    const employeeId = req.params.employeeId as string;
+    const employeeId   = req.params.employeeId          as string;
     const { month, year } = req.body;
 
-    // Fetch Employee
     const employee = await Employee.findOne({
-      _id: new mongoose.Types.ObjectId(employeeId),
+      _id:        new mongoose.Types.ObjectId(employeeId),
       restaurant: new mongoose.Types.ObjectId(restaurantId),
     });
     if (!employee) {
       return res.status(404).json({ success: false, message: 'Employee not found' });
     }
 
-    // Fetch Restaurant settings
-    const restaurant = await Restaurant.findById(restaurantId);
-    const settings = restaurant?.payrollSettings;
+    const restaurant      = await Restaurant.findById(restaurantId);
+    const payrollSettings = restaurant?.payrollSettings;
 
-    // Calculate Working days
+    // Working days calculation
+    const getDaysInMonth = (m: number, y: number) => new Date(y, m, 0).getDate();
     let workingDays: number;
-    if (settings?.salaryCalculationOn === 'actual') {
+    if (payrollSettings?.salaryCalculationOn === 'actual') {
       workingDays = getDaysInMonth(month, year);
     } else {
-      workingDays = parseInt(settings?.salaryCalculationOn || '26');
+      workingDays = parseInt(payrollSettings?.salaryCalculationOn || '26');
     }
 
-    const overtimeRatePerHour = settings?.overtimeRatePerHour || 50;
+    const overtimeRatePerHour = payrollSettings?.overtimeRatePerHour || 50;
 
-    // Fetch same month attendance
+    // Fetch attendance
     const startDate = new Date(year, month - 1, 1);
-    const endDate = new Date(year, month, 0, 23, 59, 59);
+    const endDate   = new Date(year, month, 0, 23, 59, 59);
 
     const attendances = await Attendance.find({
-      employee: new mongoose.Types.ObjectId(employeeId),
-      date: { $gte: startDate, $lte: endDate },
-      status: 'completed',
+      employee:   new mongoose.Types.ObjectId(employeeId),
+      restaurant: new mongoose.Types.ObjectId(restaurantId),
+      date:       { $gte: startDate, $lte: endDate },
     });
 
-    // Calculate Present days and overtime
-    const presentDays = attendances.length;
-    const absentDays = workingDays - presentDays < 0 ? 0 : workingDays - presentDays;
+    // Count full days and half days
+    const fullDays = attendances.filter(a => a.dayStatus === 'present').length;
+    const halfDays = attendances.filter(a => a.dayStatus === 'half-day').length;
+    const presentDays  = fullDays + halfDays * 0.5;   // 2 half days = 1 day
+    const absentDays   = Math.max(0, workingDays - (fullDays + halfDays));
 
-    const totalOvertimeMinutes = attendances.reduce(
-      (sum, att) => sum + (att.overtimeMinutes || 0), 0
-    );
+    // Overtime — only if eligible
+    const totalOvertimeMinutes = employee.overtimeEligible
+      ? attendances.reduce((sum, a) => sum + (a.overtimeMinutes || 0), 0)
+      : 0;
     const overtimeHours = parseFloat((totalOvertimeMinutes / 60).toFixed(2));
 
-    // Calculate Salary
-    const basicSalary = employee.salary;
+    // Salary calculation
+    const basicSalary  = employee.salary;
     const perDaySalary = basicSalary / workingDays;
     const earnedSalary = parseFloat((perDaySalary * presentDays).toFixed(2));
-    const deductions = parseFloat((perDaySalary * absentDays).toFixed(2));
-    const overtimePay = parseFloat((overtimeHours * overtimeRatePerHour).toFixed(2));
-    const netSalary = parseFloat((earnedSalary + overtimePay).toFixed(2));
+    const deductions   = parseFloat((perDaySalary * absentDays).toFixed(2));
+    const overtimePay  = parseFloat((overtimeHours * overtimeRatePerHour).toFixed(2));
+    const netSalary    = parseFloat((earnedSalary + overtimePay).toFixed(2));
 
     // Duplicate check
     const existing = await Payroll.findOne({
@@ -82,10 +84,9 @@ export const calculateSalary = async (req: Request, res: Response) => {
       });
     }
 
-    // Save Payroll record
     const payroll = await Payroll.create({
       restaurant: new mongoose.Types.ObjectId(restaurantId),
-      employee: new mongoose.Types.ObjectId(employeeId),
+      employee:   new mongoose.Types.ObjectId(employeeId),
       month,
       year,
       basicSalary,
@@ -103,13 +104,12 @@ export const calculateSalary = async (req: Request, res: Response) => {
     res.status(201).json({
       success: true,
       message: 'Salary calculated successfully',
-      data: payroll,
+      data:    payroll,
     });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error', error });
   }
 };
-
 // GET ALL PAYROLL
 export const getAllPayroll = async (req: Request, res: Response) => {
   try {

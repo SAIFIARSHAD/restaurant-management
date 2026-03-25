@@ -1,6 +1,11 @@
+// apps/dashboard-app/src/components/employees/EmployeeModal.tsx
 import { useState, useMemo } from 'react';
-import { X, Eye, EyeOff } from 'lucide-react';
-import { useAddEmployee, useUpdateEmployee, type IEmployee } from '../../hooks/useEmployees';
+import { X, Eye, EyeOff, Clock } from 'lucide-react';
+import {
+  useAddEmployee,
+  useUpdateEmployee,
+  type IEmployee,
+} from '../../hooks/useEmployees';
 
 interface Props {
   employee: IEmployee | null;
@@ -16,6 +21,7 @@ interface FormState {
   salaryType: IEmployee['salaryType'];
   joiningDate: string;
   password: string;
+  overtimeEligible: boolean;
   bankDetails: {
     accountNumber: string;
     ifscCode: string;
@@ -23,7 +29,7 @@ interface FormState {
   };
 }
 
-const ROLES: IEmployee['role'][]       = ['manager', 'cashier', 'kitchen', 'waiter', 'delivery'];
+const ROLES: IEmployee['role'][]             = ['manager', 'cashier', 'kitchen', 'waiter', 'delivery'];
 const SALARY_TYPES: IEmployee['salaryType'][] = ['monthly', 'daily', 'hourly'];
 
 const ROLE_COLORS: Record<string, string> = {
@@ -38,36 +44,40 @@ const EMPTY: FormState = {
   name: '', email: '', phone: '',
   role: 'waiter', salary: 0, salaryType: 'monthly',
   joiningDate: '', password: '',
+  overtimeEligible: false,
   bankDetails: { accountNumber: '', ifscCode: '', bankName: '' },
 };
 
 export default function EmployeeModal({ employee, onClose }: Props) {
-  const isEdit = !!employee;
+  const isEdit         = !!employee;
   const addMutation    = useAddEmployee();
   const updateMutation = useUpdateEmployee();
   const [showPassword, setShowPassword] = useState(false);
-  const [activeTab, setActiveTab] = useState<'basic' | 'bank'>('basic');
+  const [activeTab,    setActiveTab]    = useState<'basic' | 'bank'>('basic');
 
   const initial = useMemo<FormState>(() => {
     if (!employee) return EMPTY;
     return {
-      name:        employee.name,
-      email:       employee.email,
-      phone:       employee.phone,
-      role:        employee.role,
-      salary:      employee.salary,
-      salaryType:  employee.salaryType,
-      joiningDate: employee.joiningDate
+      name:             employee.name,
+      email:            employee.email,
+      phone:            employee.phone,
+      role:             employee.role,
+      salary:           employee.salary,
+      salaryType:       employee.salaryType,
+      overtimeEligible: employee.overtimeEligible ?? false,
+      joiningDate:      employee.joiningDate
         ? new Date(employee.joiningDate).toISOString().split('T')[0]
         : '',
-      password: '',
-      bankDetails: employee.bankDetails ?? { accountNumber: '', ifscCode: '', bankName: '' },
+      password:    '',
+      bankDetails: employee.bankDetails ?? {
+        accountNumber: '', ifscCode: '', bankName: '',
+      },
     };
   }, [employee]);
 
   const [form, setForm] = useState<FormState>(initial);
 
-  const set = (field: keyof FormState, value: string | number) =>
+  const set = (field: keyof FormState, value: string | number | boolean) =>
     setForm(prev => ({ ...prev, [field]: value }));
 
   const setBank = (field: keyof FormState['bankDetails'], value: string) =>
@@ -77,16 +87,17 @@ export default function EmployeeModal({ employee, onClose }: Props) {
     e.preventDefault();
     if (isEdit) {
       await updateMutation.mutateAsync({
-        id: employee!._id,
-        name:        form.name,
-        email:       form.email,
-        phone:       form.phone,
-        role:        form.role,
-        salary:      form.salary,
-        salaryType:  form.salaryType,
-        joiningDate: form.joiningDate,
-        bankDetails: form.bankDetails,
-        });
+        id:               employee!._id,
+        name:             form.name,
+        email:            form.email,
+        phone:            form.phone,
+        role:             form.role,
+        salary:           form.salary,
+        salaryType:       form.salaryType,
+        joiningDate:      form.joiningDate,
+        overtimeEligible: form.overtimeEligible,
+        bankDetails:      form.bankDetails,
+      });
     } else {
       await addMutation.mutateAsync(form);
     }
@@ -114,7 +125,7 @@ export default function EmployeeModal({ employee, onClose }: Props) {
           </button>
         </div>
 
-        
+        {/* Tabs */}
         <div className="flex border-b border-zinc-800 shrink-0">
           {(['basic', 'bank'] as const).map(tab => (
             <button
@@ -132,12 +143,12 @@ export default function EmployeeModal({ employee, onClose }: Props) {
           ))}
         </div>
 
-        
+        {/* Form */}
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 space-y-4">
 
           {activeTab === 'basic' && (
             <>
-              
+              {/* Name */}
               <div>
                 <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
                   Full Name *
@@ -151,7 +162,7 @@ export default function EmployeeModal({ employee, onClose }: Props) {
                 />
               </div>
 
-              
+              {/* Email + Phone */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
@@ -180,7 +191,7 @@ export default function EmployeeModal({ employee, onClose }: Props) {
                 </div>
               </div>
 
-              
+              {/* Role */}
               <div>
                 <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
                   Role *
@@ -203,7 +214,7 @@ export default function EmployeeModal({ employee, onClose }: Props) {
                 </div>
               </div>
 
-              
+              {/* Salary + Type */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
@@ -225,7 +236,7 @@ export default function EmployeeModal({ employee, onClose }: Props) {
                   <select
                     value={form.salaryType}
                     onChange={e => set('salaryType', e.target.value)}
-                    className="mt-1.5 w-full px-4 py-2.5 bg-zinc-900 border border-zinc-700 rounded-xl text-white text-sm focus:outline-none focus:border-orange-500 capitalize"
+                    className="mt-1.5 w-full px-4 py-2.5 bg-zinc-900 border border-zinc-700 rounded-xl text-white text-sm focus:outline-none focus:border-orange-500"
                   >
                     {SALARY_TYPES.map(t => (
                       <option key={t} value={t} className="bg-zinc-900 capitalize">{t}</option>
@@ -234,7 +245,7 @@ export default function EmployeeModal({ employee, onClose }: Props) {
                 </div>
               </div>
 
-              
+              {/* Joining Date */}
               <div>
                 <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
                   Joining Date *
@@ -248,7 +259,43 @@ export default function EmployeeModal({ employee, onClose }: Props) {
                 />
               </div>
 
-              
+              {/* Overtime Eligible Toggle */}
+              <div className={`flex items-center justify-between p-4 rounded-xl border transition-colors ${
+                form.overtimeEligible
+                  ? 'bg-green-500/10 border-green-500/30'
+                  : 'bg-zinc-900 border-zinc-700'
+              }`}>
+                <div className="flex items-center gap-3">
+                  <div className={`p-2 rounded-lg ${
+                    form.overtimeEligible ? 'bg-green-500/20' : 'bg-zinc-800'
+                  }`}>
+                    <Clock className={`w-4 h-4 ${
+                      form.overtimeEligible ? 'text-green-400' : 'text-zinc-500'
+                    }`} />
+                  </div>
+                  <div>
+                    <p className="text-white text-sm font-semibold">Overtime Eligible</p>
+                    <p className="text-zinc-500 text-xs">
+                      {form.overtimeEligible
+                        ? 'Overtime pay will be calculated'
+                        : 'No overtime pay for this employee'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => set('overtimeEligible', !form.overtimeEligible)}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${
+                    form.overtimeEligible ? 'bg-green-500' : 'bg-zinc-700'
+                  }`}
+                >
+                  <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                    form.overtimeEligible ? 'translate-x-5' : 'translate-x-0'
+                  }`} />
+                </button>
+              </div>
+
+              {/* Password — create only */}
               {!isEdit && (
                 <div>
                   <label className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
@@ -267,7 +314,9 @@ export default function EmployeeModal({ employee, onClose }: Props) {
                       onClick={() => setShowPassword(p => !p)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-white"
                     >
-                      {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {showPassword
+                        ? <EyeOff className="w-4 h-4" />
+                        : <Eye    className="w-4 h-4" />}
                     </button>
                   </div>
                   <p className="text-xs text-zinc-600 mt-1">
@@ -314,18 +363,24 @@ export default function EmployeeModal({ employee, onClose }: Props) {
                 />
               </div>
 
-              
+              {/* Preview Card */}
               {(form.bankDetails.bankName || form.bankDetails.accountNumber) && (
                 <div className="p-4 bg-zinc-900 border border-zinc-700 rounded-xl space-y-1.5 mt-2">
-                  <p className="text-xs text-zinc-500 uppercase font-semibold tracking-wider mb-2">Preview</p>
+                  <p className="text-xs text-zinc-500 uppercase font-semibold tracking-wider mb-2">
+                    Preview
+                  </p>
                   {form.bankDetails.bankName && (
                     <p className="text-sm text-white">{form.bankDetails.bankName}</p>
                   )}
                   {form.bankDetails.accountNumber && (
-                    <p className="text-sm text-zinc-400">A/C: {form.bankDetails.accountNumber}</p>
+                    <p className="text-sm text-zinc-400">
+                      A/C: {form.bankDetails.accountNumber}
+                    </p>
                   )}
                   {form.bankDetails.ifscCode && (
-                    <p className="text-sm text-zinc-400">IFSC: {form.bankDetails.ifscCode}</p>
+                    <p className="text-sm text-zinc-400">
+                      IFSC: {form.bankDetails.ifscCode}
+                    </p>
                   )}
                 </div>
               )}
@@ -345,10 +400,16 @@ export default function EmployeeModal({ employee, onClose }: Props) {
           <button
             type="button"
             onClick={handleSubmit as unknown as React.MouseEventHandler}
-            disabled={loading || !form.name || !form.email || !form.phone || !form.joiningDate}
+            disabled={
+              loading ||
+              !form.name || !form.email ||
+              !form.phone || !form.joiningDate
+            }
             className="flex-1 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white rounded-xl font-semibold text-sm transition-colors"
           >
-            {loading ? 'Saving...' : isEdit ? 'Update Employee' : 'Add Employee'}
+            {loading
+              ? 'Saving...'
+              : isEdit ? 'Update Employee' : 'Add Employee'}
           </button>
         </div>
       </div>
