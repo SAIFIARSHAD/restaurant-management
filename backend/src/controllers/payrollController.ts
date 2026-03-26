@@ -5,13 +5,14 @@ import Employee from '../models/Employee';
 import Attendance from '../models/Attendance';
 import Restaurant from '../models/Restaurant';
 import PDFDocument from 'pdfkit';
+import { getShiftSettings } from '../utils/shiftSettingsHelper';
 
-// Helper: Days in Month
+
 const getDaysInMonth = (month: number, year: number): number => {
   return new Date(year, month, 0).getDate();
 };
 
-// CALCULATE SALARY
+
 export const calculateSalary = async (req: Request, res: Response) => {
   try {
     const restaurantId = (req as any).user.restaurantId as string;
@@ -26,21 +27,16 @@ export const calculateSalary = async (req: Request, res: Response) => {
       return res.status(404).json({ success: false, message: 'Employee not found' });
     }
 
-    const restaurant      = await Restaurant.findById(restaurantId);
-    const payrollSettings = restaurant?.payrollSettings;
+    const shiftSettings = await getShiftSettings(restaurantId, employeeId);
 
-    // Working days calculation
-    const getDaysInMonth = (m: number, y: number) => new Date(y, m, 0).getDate();
-    let workingDays: number;
-    if (payrollSettings?.salaryCalculationOn === 'actual') {
-      workingDays = getDaysInMonth(month, year);
-    } else {
-      workingDays = parseInt(payrollSettings?.salaryCalculationOn || '26');
-    }
-
-    const overtimeRatePerHour = payrollSettings?.overtimeRatePerHour || 50;
-
-    // Fetch attendance
+let workingDays: number;
+if (shiftSettings.salaryCalculationOn === 'actual') {
+  workingDays = getDaysInMonth(month, year);
+} else {
+  workingDays = parseInt(shiftSettings.salaryCalculationOn);
+}
+const overtimeRatePerHour = shiftSettings.overtimeRatePerHour;
+    
     const startDate = new Date(year, month - 1, 1);
     const endDate   = new Date(year, month, 0, 23, 59, 59);
 
@@ -50,19 +46,19 @@ export const calculateSalary = async (req: Request, res: Response) => {
       date:       { $gte: startDate, $lte: endDate },
     });
 
-    // Count full days and half days
+    
     const fullDays = attendances.filter(a => a.dayStatus === 'present').length;
     const halfDays = attendances.filter(a => a.dayStatus === 'half-day').length;
-    const presentDays  = fullDays + halfDays * 0.5;   // 2 half days = 1 day
+    const presentDays  = fullDays + halfDays * 0.5;   
     const absentDays   = Math.max(0, workingDays - (fullDays + halfDays));
 
-    // Overtime — only if eligible
+    
     const totalOvertimeMinutes = employee.overtimeEligible
       ? attendances.reduce((sum, a) => sum + (a.overtimeMinutes || 0), 0)
       : 0;
     const overtimeHours = parseFloat((totalOvertimeMinutes / 60).toFixed(2));
 
-    // Salary calculation
+    
     const basicSalary  = employee.salary;
     const perDaySalary = basicSalary / workingDays;
     const earnedSalary = parseFloat((perDaySalary * presentDays).toFixed(2));
@@ -70,7 +66,7 @@ export const calculateSalary = async (req: Request, res: Response) => {
     const overtimePay  = parseFloat((overtimeHours * overtimeRatePerHour).toFixed(2));
     const netSalary    = parseFloat((earnedSalary + overtimePay).toFixed(2));
 
-    // Duplicate check
+    
     const existing = await Payroll.findOne({
       employee: new mongoose.Types.ObjectId(employeeId),
       month,
@@ -110,7 +106,7 @@ export const calculateSalary = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: 'Server error', error });
   }
 };
-// GET ALL PAYROLL
+
 export const getAllPayroll = async (req: Request, res: Response) => {
   try {
     const restaurantId = (req as any).user.restaurantId as string;
@@ -136,7 +132,7 @@ export const getAllPayroll = async (req: Request, res: Response) => {
   }
 };
 
-// GET SINGLE EMPLOYEE PAYROLL HISTORY
+
 export const getEmployeePayroll = async (req: Request, res: Response) => {
   try {
     const restaurantId = (req as any).user.restaurantId as string;
@@ -157,7 +153,7 @@ export const getEmployeePayroll = async (req: Request, res: Response) => {
   }
 };
 
-// MARK SALARY AS PAID
+// Mark Salary as Paid
 export const markSalaryPaid = async (req: Request, res: Response) => {
   try {
     const restaurantId = (req as any).user.restaurantId as string;
@@ -191,7 +187,7 @@ export const markSalaryPaid = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: 'Server error', error });
   }
 };
-// ─── 5. GENERATE PAYSLIP PDF ─────────────────────────────────────────────────
+
 export const generatePayslip = async (req: Request, res: Response) => {
   try {
     const restaurantId = (req as any).user.restaurantId as string;

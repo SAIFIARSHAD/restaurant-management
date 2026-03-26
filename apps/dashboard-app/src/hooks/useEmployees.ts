@@ -1,4 +1,3 @@
-// apps/dashboard-app/src/hooks/useEmployees.ts
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/axios';
 
@@ -18,7 +17,8 @@ export interface IEmployee {
   salaryType: 'monthly' | 'daily' | 'hourly';
   joiningDate: string;
   bankDetails: BankDetails;
-  overtimeEligible: boolean;   // ← NEW
+  overtimeEligible: boolean;   
+  shiftTemplateId?: string;
   isActive: boolean;
   userId: string;
   createdAt: string;
@@ -34,10 +34,10 @@ export interface ISession {
 export interface IAttendance {
   _id: string;
   date: string;
-  sessions: ISession[];          // ← NEW multi-session
-  totalMinutes: number;          // ← NEW
+  sessions: ISession[];          
+  totalMinutes: number;          
   overtimeMinutes: number;
-  dayStatus: 'present' | 'half-day' | 'absent';  // ← NEW
+  dayStatus: 'present' | 'half-day' | 'absent';  
   status: 'active' | 'completed' | 'auto-logout';
   lastHeartbeat: string;
   employee: {
@@ -50,13 +50,13 @@ export interface IAttendance {
 
 export interface AttendanceSummary {
   totalDays: number;
-  fullDays: number;              // ← NEW
-  halfDays: number;              // ← NEW
+  fullDays: number;              
+  halfDays: number;              
   totalHours: string;
   totalOvertime: string;
 }
 
-// ── Get all employees ─────────────────────────────────────
+
 export const useEmployees = () =>
   useQuery({
     queryKey: ['employees'],
@@ -66,7 +66,7 @@ export const useEmployees = () =>
     },
   });
 
-// ── Today attendance ──────────────────────────────────────
+
 export const useTodayAttendance = () =>
   useQuery({
     queryKey: ['attendance', 'today'],
@@ -77,7 +77,7 @@ export const useTodayAttendance = () =>
     refetchInterval: 60000,
   });
 
-// ── Employee attendance history ───────────────────────────
+
 export const useEmployeeAttendance = (
   employeeId: string,
   startDate?: string,
@@ -101,7 +101,7 @@ export const useEmployeeAttendance = (
     enabled: !!employeeId,
   });
 
-// ── Add employee ──────────────────────────────────────────
+
 export const useAddEmployee = () => {
   const qc = useQueryClient();
   return useMutation({
@@ -114,7 +114,7 @@ export const useAddEmployee = () => {
   });
 };
 
-// ── Update employee ───────────────────────────────────────
+
 export const useUpdateEmployee = () => {
   const qc = useQueryClient();
   return useMutation({
@@ -124,7 +124,7 @@ export const useUpdateEmployee = () => {
   });
 };
 
-// ── Delete employee ───────────────────────────────────────
+
 export const useDeleteEmployee = () => {
   const qc = useQueryClient();
   return useMutation({
@@ -133,7 +133,7 @@ export const useDeleteEmployee = () => {
   });
 };
 
-// ── Toggle overtime eligibility ───────────────────────────
+
 export const useToggleOvertime = () => {
   const qc = useQueryClient();
   return useMutation({

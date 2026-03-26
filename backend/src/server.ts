@@ -49,7 +49,7 @@ app.use(helmetConfig);
 app.use(hppProtect);
 app.use(sanitize);
 
-// CORS
+// Cors
 app.use(cors({
   origin: '*',
   credentials: false

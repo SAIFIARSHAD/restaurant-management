@@ -1,22 +1,36 @@
-import { useState } from 'react';          
+import { useState } from 'react';
 import {
   Clock, IndianRupee, Calendar, Save,
   Settings, Info, RefreshCw,
+  Layers, Plus, Pencil, Trash2,
 } from 'lucide-react';
 import {
   usePayrollSettings,
   useUpdatePayrollSettings,
+  useCreateShiftTemplate,
+  useUpdateShiftTemplate,
+  useDeleteShiftTemplate,
   type IPayrollSettings,
+  type IShiftTemplate,
 } from '../../hooks/usePayrollSettings';
+import ShiftTemplateModal from '../../components/employees/ShiftTemplateModal';
 
-// ── Inner form component ──────────────────────────────────
 function PayrollSettingsForm({
   settings,
+  shiftTemplates,
 }: {
-  settings: IPayrollSettings;
+  settings:       IPayrollSettings;
+  shiftTemplates: IShiftTemplate[];
 }) {
-  const updateMutation = useUpdatePayrollSettings();
-  const [saved, setSaved] = useState(false);
+  const updateMutation  = useUpdatePayrollSettings();
+  const createTemplate  = useCreateShiftTemplate();
+  const updateTemplate  = useUpdateShiftTemplate();
+  const deleteTemplate  = useDeleteShiftTemplate();
+
+  const [saved,              setSaved]              = useState(false);
+  const [showTemplateModal,  setShowTemplateModal]  = useState(false);
+  const [editTemplate,       setEditTemplate]       = useState<IShiftTemplate | null>(null);
+  const [confirmDeleteId,    setConfirmDeleteId]    = useState<string | null>(null);
 
   const [form, setForm] = useState<Omit<IPayrollSettings, 'shiftHours'>>({
     salaryCalculationOn:   settings.salaryCalculationOn,
@@ -30,10 +44,11 @@ function PayrollSettingsForm({
   const set = (field: keyof typeof form, value: string | number) =>
     setForm(prev => ({ ...prev, [field]: value }));
 
-  const calcShiftHours = () => {
-    const [startH, startM] = form.shiftStartTime.split(':').map(Number);
-    const [endH,   endM  ] = form.shiftEndTime.split(':').map(Number);
-    const total = (endH * 60 + endM) - (startH * 60 + startM);
+  const calcShiftHours = (start = form.shiftStartTime, end = form.shiftEndTime) => {
+    const [startH, startM] = start.split(':').map(Number);
+    const [endH,   endM  ] = end.split(':').map(Number);
+    let total = (endH * 60 + endM) - (startH * 60 + startM);
+    if (total < 0) total += 24 * 60;
     return total > 0 ? (total / 60).toFixed(1) : '—';
   };
 
@@ -41,6 +56,11 @@ function PayrollSettingsForm({
     await updateMutation.mutateAsync(form);
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
+  };
+
+  const handleDeleteTemplate = async (id: string) => {
+    await deleteTemplate.mutateAsync(id);
+    setConfirmDeleteId(null);
   };
 
   const WORKING_DAY_OPTIONS = [
@@ -56,12 +76,12 @@ function PayrollSettingsForm({
   return (
     <div className="max-w-2xl space-y-6">
 
-      {/* Description */}
+      
       <p className="text-zinc-500 text-sm">
         Configure shift hours, working days and overtime rules
       </p>
 
-      {/* Preview Card */}
+      
       <div className="bg-orange-500/10 border border-orange-500/20 rounded-2xl p-5">
         <p className="text-xs text-orange-400 uppercase font-semibold tracking-wider mb-3">
           Current Configuration Preview
@@ -82,7 +102,7 @@ function PayrollSettingsForm({
         </div>
       </div>
 
-      {/* Working Days */}
+      
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
         <div className="flex items-center gap-2 mb-1">
           <Calendar className="w-4 h-4 text-blue-400" />
@@ -109,11 +129,11 @@ function PayrollSettingsForm({
         </div>
       </div>
 
-      {/* Shift Timing */}
+      
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
         <div className="flex items-center gap-2 mb-1">
           <Clock className="w-4 h-4 text-orange-400" />
-          <h2 className="text-white font-semibold">Shift Timing</h2>
+          <h2 className="text-white font-semibold">Default Shift Timing</h2>
         </div>
         <p className="text-zinc-500 text-xs">
           Define standard shift start and end times for your restaurant.
@@ -151,7 +171,7 @@ function PayrollSettingsForm({
         </div>
       </div>
 
-      {/* Attendance Rules */}
+      
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
         <div className="flex items-center gap-2 mb-1">
           <RefreshCw className="w-4 h-4 text-yellow-400" />
@@ -190,16 +210,16 @@ function PayrollSettingsForm({
           </div>
         </div>
 
-        {/* Logic Info */}
+        
         <div className="bg-zinc-800/40 border border-zinc-700/50 rounded-xl p-4 space-y-2">
           <p className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-1">
             Calculation Logic
           </p>
           {[
-            { color: 'bg-red-400',    text: `Less than ${form.halfDayThreshold} hrs`,                         label: 'Absent',   labelColor: 'text-red-400'    },
-            { color: 'bg-yellow-400', text: `${form.halfDayThreshold} hrs to ${calcShiftHours()} hrs`,        label: 'Half Day', labelColor: 'text-yellow-400' },
-            { color: 'bg-green-400',  text: `${calcShiftHours()} hrs or more`,                                label: 'Full Day', labelColor: 'text-green-400'  },
-            { color: 'bg-orange-400', text: `${calcShiftHours()} hrs + ${form.overtimeBufferMinutes} mins`,   label: 'Overtime starts', labelColor: 'text-orange-400' },
+            { color: 'bg-red-400',    text: `Less than ${form.halfDayThreshold} hrs`,                       label: 'Absent',         labelColor: 'text-red-400'    },
+            { color: 'bg-yellow-400', text: `${form.halfDayThreshold} hrs to ${calcShiftHours()} hrs`,      label: 'Half Day',       labelColor: 'text-yellow-400' },
+            { color: 'bg-green-400',  text: `${calcShiftHours()} hrs or more`,                              label: 'Full Day',       labelColor: 'text-green-400'  },
+            { color: 'bg-orange-400', text: `${calcShiftHours()} hrs + ${form.overtimeBufferMinutes} mins`, label: 'Overtime starts', labelColor: 'text-orange-400' },
           ].map(row => (
             <div key={row.label} className="flex items-center gap-2 text-xs text-zinc-400">
               <span className={`w-2 h-2 rounded-full ${row.color} shrink-0`} />
@@ -210,7 +230,7 @@ function PayrollSettingsForm({
         </div>
       </div>
 
-      {/* Overtime Rate */}
+      
       <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
         <div className="flex items-center gap-2 mb-1">
           <IndianRupee className="w-4 h-4 text-green-400" />
@@ -239,7 +259,114 @@ function PayrollSettingsForm({
         </div>
       </div>
 
-      {/* Save Button */}
+      
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Layers className="w-4 h-4 text-blue-400" />
+            <h2 className="text-white font-semibold">Shift Templates</h2>
+            <span className="text-xs text-zinc-500 bg-zinc-800 px-2 py-0.5 rounded-md">
+              {shiftTemplates.length}/5
+            </span>
+          </div>
+          {shiftTemplates.length < 5 && (
+            <button
+              type="button"
+              onClick={() => { setEditTemplate(null); setShowTemplateModal(true); }}
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-blue-500/20 hover:bg-blue-500/30 border border-blue-500/30 text-blue-400 rounded-xl text-xs font-semibold transition-colors"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              Add Template
+            </button>
+          )}
+        </div>
+
+        <p className="text-zinc-500 text-xs">
+          Create shift templates for different working hours.
+          Assign to employees from the Employees tab.
+        </p>
+
+        
+        {shiftTemplates.length === 0 ? (
+          <div className="text-center py-8 border border-dashed border-zinc-700 rounded-xl">
+            <Layers className="w-8 h-8 text-zinc-700 mx-auto mb-2" />
+            <p className="text-zinc-500 text-sm">No shift templates yet</p>
+            <p className="text-zinc-600 text-xs mt-1">
+              Default payroll settings will apply to all employees
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {shiftTemplates.map(t => (
+              <div
+                key={t._id}
+                className="flex items-center justify-between p-3 bg-zinc-800/60 rounded-xl border border-zinc-700/50"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-500/10 rounded-lg shrink-0">
+                    <Clock className="w-4 h-4 text-blue-400" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <p className="text-white text-sm font-semibold">{t.name}</p>
+                      {t.isDefault && (
+                        <span className="text-xs px-1.5 py-0.5 bg-orange-500/20 border border-orange-500/30 text-orange-400 rounded-md">
+                          Default
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-zinc-500 text-xs mt-0.5">
+                      {t.shiftStartTime} – {t.shiftEndTime}
+                      &nbsp;·&nbsp;{calcShiftHours(t.shiftStartTime, t.shiftEndTime)}h shift
+                      &nbsp;·&nbsp;Half day: {t.halfDayThreshold}h
+                      &nbsp;·&nbsp;OT: ₹{t.overtimeRatePerHour}/hr
+                    </p>
+                  </div>
+                </div>
+
+                
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    onClick={() => { setEditTemplate(t); setShowTemplateModal(true); }}
+                    className="p-1.5 bg-zinc-700 hover:bg-zinc-600 text-zinc-400 hover:text-white rounded-lg transition-colors"
+                    title="Edit"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+
+                  {confirmDeleteId === t._id ? (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleDeleteTemplate(t._id)}
+                        disabled={deleteTemplate.isPending}
+                        className="px-2 py-1 bg-red-500/20 hover:bg-red-500/30 border border-red-500/30 text-red-400 text-xs rounded-lg font-semibold"
+                      >
+                        {deleteTemplate.isPending ? '...' : 'Confirm'}
+                      </button>
+                      <button
+                        onClick={() => setConfirmDeleteId(null)}
+                        className="px-2 py-1 bg-zinc-700 text-zinc-400 text-xs rounded-lg"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setConfirmDeleteId(t._id)}
+                      className="p-1.5 bg-zinc-700 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 rounded-lg transition-colors"
+                      title="Delete"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      
       <button
         onClick={handleSave}
         disabled={updateMutation.isPending}
@@ -256,13 +383,34 @@ function PayrollSettingsForm({
             : <><Save className="w-4 h-4" /> Save Payroll Settings</>
         }
       </button>
+
+      
+      {showTemplateModal && (
+        <ShiftTemplateModal
+          template={editTemplate}
+          onClose={() => { setShowTemplateModal(false); setEditTemplate(null); }}
+          onSave={async data => {
+            if (editTemplate) {
+              await updateTemplate.mutateAsync({
+                templateId: editTemplate._id,
+                ...data,
+              });
+            } else {
+              await createTemplate.mutateAsync(data);
+            }
+            setShowTemplateModal(false);
+            setEditTemplate(null);
+          }}
+          saving={createTemplate.isPending || updateTemplate.isPending}
+        />
+      )}
     </div>
   );
 }
 
-// ── Main export ───────────────────────────────────────────
+
 export default function PayrollSettingsPage() {
-  const { data: settings, isLoading } = usePayrollSettings();
+  const { data, isLoading } = usePayrollSettings();
 
   if (isLoading) {
     return (
@@ -274,7 +422,7 @@ export default function PayrollSettingsPage() {
     );
   }
 
-  if (!settings) {
+  if (!data) {
     return (
       <div className="text-center py-20">
         <Settings className="w-10 h-10 text-zinc-600 mx-auto mb-3" />
@@ -283,6 +431,11 @@ export default function PayrollSettingsPage() {
     );
   }
 
-  // Key trick — settings load hone ke baad fresh form render hoga
-  return <PayrollSettingsForm key={settings.shiftStartTime} settings={settings} />;
+  return (
+    <PayrollSettingsForm
+      key={data.payrollSettings.shiftStartTime}
+      settings={data.payrollSettings}
+      shiftTemplates={data.shiftTemplates}
+    />
+  );
 }

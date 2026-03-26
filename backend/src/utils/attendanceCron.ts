@@ -1,21 +1,21 @@
-// backend/src/utils/attendanceCron.ts
 import cron from 'node-cron';
 import Attendance from '../models/Attendance';
-import Restaurant from '../models/Restaurant';
+import { getShiftSettings } from './shiftSettingsHelper';
+
 
 export const startAttendanceCron = () => {
   cron.schedule('*/5 * * * *', async () => {
     try {
       const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 
-      // lastHeartbeat older than 5 min — active sessions
+      
       const staleAttendances = await Attendance.find({
         status:        'active',
         lastHeartbeat: { $lt: fiveMinutesAgo },
       });
 
       for (const attendance of staleAttendances) {
-        // Active session dhundo (logoutTime nahi hai jo)
+        
         const activeSession = attendance.sessions
           .slice()
           .reverse()
@@ -30,20 +30,18 @@ export const startAttendanceCron = () => {
           activeSession.durationMinutes = sessionMinutes;
         }
 
-        // Sab sessions ka total minutes calculate karo
+        
         const totalMinutes = attendance.sessions.reduce(
           (sum, s) => sum + (s.durationMinutes || 0), 0
         );
 
-        // Restaurant payroll settings fetch karo
-        const restaurant      = await Restaurant.findById(attendance.restaurant);
-        const payrollSettings = restaurant?.payrollSettings ?? {
-          shiftHours:            9,
-          halfDayThreshold:      4.5,
-          overtimeBufferMinutes: 20,
-        };
+        
+       const payrollSettings = await getShiftSettings(
+        attendance.restaurant.toString(),
+        attendance.employee.toString()
+      );
 
-        // Day status calculate karo
+        
         const totalHours        = totalMinutes / 60;
         const overtimeThreshold = payrollSettings.shiftHours * 60 + payrollSettings.overtimeBufferMinutes;
 

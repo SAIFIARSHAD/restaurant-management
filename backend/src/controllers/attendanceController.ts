@@ -155,12 +155,10 @@ export const markLogout = async (req: Request, res: Response) => {
     );
 
     
-    const restaurant      = await Restaurant.findById(restaurantId);
-    const payrollSettings = restaurant?.payrollSettings ?? {
-      shiftHours:            9,
-      halfDayThreshold:      4.5,
-      overtimeBufferMinutes: 20,
-    };
+        const payrollSettings = await getShiftSettings(
+        restaurantId,
+        employee._id.toString()
+      );
 
     const { dayStatus, overtimeMinutes } = recalculateDayStatus(
       totalMinutes,
@@ -283,3 +281,36 @@ export const getEmployeeAttendance = async (req: Request, res: Response) => {
     res.status(500).json({ success: false, message: 'Server error', error });
   }
 };
+
+
+
+const getShiftSettings = async (
+  restaurantId: string,
+  employeeId: string
+) => {
+  const employee   = await Employee.findById(employeeId);
+  const restaurant = await Restaurant.findById(restaurantId);
+
+  
+  if (employee?.shiftTemplateId && restaurant?.shiftTemplates?.length) {
+    const template = restaurant.shiftTemplates
+      .find(t => t._id.toString() === employee.shiftTemplateId!.toString());
+    if (template) {
+      return {
+        shiftHours:            template.shiftHours,
+        halfDayThreshold:      template.halfDayThreshold,
+        overtimeBufferMinutes: template.overtimeBufferMinutes,
+        overtimeRatePerHour:   template.overtimeRatePerHour,
+      };
+    }
+  }
+
+  
+  return {
+    shiftHours:            restaurant?.payrollSettings?.shiftHours            ?? 9,
+    halfDayThreshold:      restaurant?.payrollSettings?.halfDayThreshold      ?? 4.5,
+    overtimeBufferMinutes: restaurant?.payrollSettings?.overtimeBufferMinutes ?? 20,
+    overtimeRatePerHour:   restaurant?.payrollSettings?.overtimeRatePerHour   ?? 50,
+  };
+};
+
