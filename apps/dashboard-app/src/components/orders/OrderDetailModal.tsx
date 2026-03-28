@@ -8,7 +8,7 @@ interface Props {
   onClose: () => void;
 }
 
-const STATUS_FLOW: Order['status'][] = ['pending', 'accepted', 'preparing', 'ready', 'served'];
+const STATUS_FLOW: Order['status'][] = ['pending', 'accepted', 'preparing', 'ready', 'served', 'billed'];
 
 const STATUS_CONFIG = {
   pending:   { label: 'Pending',   color: 'text-yellow-400', bg: 'bg-yellow-500/20', icon: Clock },
@@ -16,6 +16,7 @@ const STATUS_CONFIG = {
   preparing: { label: 'Preparing', color: 'text-orange-400', bg: 'bg-orange-500/20', icon: ChefHat },
   ready:     { label: 'Ready',     color: 'text-green-400',  bg: 'bg-green-500/20',  icon: Bell },
   served:    { label: 'Served',    color: 'text-zinc-400',   bg: 'bg-zinc-500/20',   icon: UtensilsCrossed },
+  billed:    { label: 'Billed',    color: 'text-teal-400',   bg: 'bg-teal-500/20',   icon: CheckCircle2 },
   cancelled: { label: 'Cancelled', color: 'text-red-400',    bg: 'bg-red-500/20',    icon: XCircle },
 };
 
@@ -25,7 +26,7 @@ export default function OrderDetailModal({ order, onClose }: Props) {
   const statusMutation = useUpdateOrderStatus();
   const paymentMutation = useUpdatePayment();
 
-  // Cancel reason state
+  
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
   const [cancelError, setCancelError] = useState('');
@@ -39,7 +40,7 @@ export default function OrderDetailModal({ order, onClose }: Props) {
     });
   };
 
-  // Cancel with reason
+  
   const handleCancelConfirm = () => {
     if (!cancelReason.trim()) {
       setCancelError('Cancellation reason required!');
@@ -65,7 +66,7 @@ export default function OrderDetailModal({ order, onClose }: Props) {
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
 
-          {/* Header */}
+          
           <div className="flex items-center justify-between p-5 border-b border-zinc-800">
             <div>
               <h2 className="text-white font-bold text-lg">#{order.orderNumber}</h2>
@@ -87,7 +88,7 @@ export default function OrderDetailModal({ order, onClose }: Props) {
             </div>
           </div>
 
-          {/* Cancellation Reason — if cancelled */}
+          
           {order.status === 'cancelled' && order.cancellationReason && (
             <div className="mx-5 mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
               <p className="text-red-400 text-xs font-semibold uppercase tracking-wider mb-1">Cancellation Reason</p>
@@ -95,7 +96,7 @@ export default function OrderDetailModal({ order, onClose }: Props) {
             </div>
           )}
 
-          {/* Items */}
+          
           <div className="p-5 border-b border-zinc-800">
             <h3 className="text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-3">Order Items</h3>
             <div className="space-y-3">
@@ -114,7 +115,7 @@ export default function OrderDetailModal({ order, onClose }: Props) {
             </div>
           </div>
 
-          {/* Bill Summary */}
+          
           <div className="p-5 border-b border-zinc-800 space-y-2">
             <h3 className="text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-3">Bill Summary</h3>
             <div className="flex justify-between text-sm text-zinc-300">
@@ -134,9 +135,9 @@ export default function OrderDetailModal({ order, onClose }: Props) {
             </div>
           </div>
 
-          {/* Actions */}
+          
           <div className="p-5 space-y-3">
-            {order.status !== 'served' && order.status !== 'cancelled' && (
+            {order.status !== 'served' && order.status !== 'cancelled' && order.status !== 'billed' && (
               <div className="flex gap-2">
                 {nextStatus && (
                   <button
@@ -179,7 +180,7 @@ export default function OrderDetailModal({ order, onClose }: Props) {
         </div>
       </div>
 
-      {/* Cancel Reason Modal */}
+      
       {showCancelModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
           <div className="bg-zinc-900 border border-red-500/30 rounded-2xl w-full max-w-sm p-6 space-y-4">
@@ -210,7 +211,7 @@ export default function OrderDetailModal({ order, onClose }: Props) {
               )}
             </div>
 
-            {/* Quick reason buttons */}
+            
             <div className="flex flex-wrap gap-2">
               {['Customer request', 'Item unavailable', 'Wrong order', 'Payment issue'].map((r) => (
                 <button

@@ -13,6 +13,7 @@ const STATUS_FILTERS = [
   { label: 'Preparing', value: 'preparing' },
   { label: 'Ready',     value: 'ready' },
   { label: 'Served',    value: 'served' },
+  { label: 'Billed', value: 'billed' },
   { label: 'Cancelled', value: 'cancelled' },
 ];
 
@@ -68,8 +69,7 @@ export default function OrdersPage() {
     setAppliedTo('');
   };
 
-  // Unique floors list
-  const floors = [...new Set(tables.map(t => t.floor).filter(Boolean))].sort() as string[];
+    const floors = [...new Set(tables.map(t => t.floor).filter(Boolean))].sort() as string[];
 
   return (
     <div className="space-y-1.5">
@@ -79,9 +79,8 @@ export default function OrdersPage() {
     </p>
   </div>
 
-  {/* Status + Table Filter */}
-  <div className="flex flex-wrap items-center gap-2">
-    {/* Status buttons */}
+    <div className="flex flex-wrap items-center gap-2">
+    
     {STATUS_FILTERS.map((f) => (
       <button
         key={f.value}
@@ -96,11 +95,11 @@ export default function OrdersPage() {
       </button>
     ))}
 
-    {/*  Floor+Table */}
+    
     <div className="ml-auto flex items-center gap-1.5 px-4 py-2 bg-zinc-900 border border-zinc-700/80 rounded-2xl shadow-lg backdrop-blur-sm hover:shadow-orange-500/20 hover:border-orange-500/50 transition-all duration-300">
       <span className="text-sm font-semibold text-zinc-300"></span>
       
-      {/* Floor */}
+      
       <select
         value={selectedFloor}
         onChange={(e) => {
@@ -117,7 +116,7 @@ export default function OrdersPage() {
 
       <span className="text-zinc-500 font-semibold">/</span>
 
-      {/* Table */}
+      
       <select
         value={selectedTable}
         onChange={(e) => setSelectedTable(e.target.value)}
@@ -147,8 +146,7 @@ export default function OrdersPage() {
 
 
 
-      {/* Date Filters */}
-      <div className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
         {[
           { label: 'All Orders', value: 'all' as const },
           { label: 'Today',      value: 'today' as const },
@@ -205,7 +203,7 @@ export default function OrdersPage() {
         )}
       </div>
 
-      {/* Table Header */}
+      
       {!isLoading && filtered.length > 0 && (
         <div className="px-5 py-2 flex items-center gap-4 text-xs text-zinc-600 font-semibold uppercase tracking-wider border-b border-zinc-800">
           <div className="w-32 shrink-0">Order</div>
@@ -217,7 +215,7 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {/* Loading */}
+      
       {isLoading && (
         <div className="space-y-2">
           {[...Array(6)].map((_, i) => (
@@ -226,7 +224,7 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {/* Empty State */}
+      
       {!isLoading && filtered.length === 0 && (
         <div className="text-center py-16">
           <p className="text-zinc-500 text-lg">No orders found</p>
@@ -243,7 +241,7 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {/* Orders List */}
+      
       {!isLoading && filtered.length > 0 && (
         <div className="space-y-2">
           {filtered.map((order) => (
@@ -256,7 +254,7 @@ export default function OrdersPage() {
         </div>
       )}
 
-      {/* Detail Modal */}
+      
       {selectedOrder && (
         <OrderDetailModal
           order={selectedOrder}

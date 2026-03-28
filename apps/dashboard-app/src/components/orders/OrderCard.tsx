@@ -12,6 +12,7 @@ const STATUS_CONFIG = {
   preparing: { label: 'Preparing', color: 'bg-orange-500/20 text-orange-400',  icon: ChefHat },
   ready:     { label: 'Ready',     color: 'bg-green-500/20 text-green-400',    icon: Bell },
   served:    { label: 'Served',    color: 'bg-zinc-500/20 text-zinc-400',      icon: UtensilsCrossed },
+  billed:    { label: 'Billed',    color: 'bg-teal-500/20 text-teal-400',      icon: CheckCircle2 },
   cancelled: { label: 'Cancelled', color: 'bg-red-500/20 text-red-400',        icon: XCircle },
 } as const;
 
@@ -51,7 +52,7 @@ export default function OrderCard({ order, onClick }: Props) {
       onClick={onClick}
       className="bg-zinc-900 border border-zinc-800 hover:border-orange-500/50 rounded-xl px-5 py-3.5 flex items-center gap-4 cursor-pointer transition-all hover:bg-zinc-800/60"
     >
-      {/* Order Number + Table */}
+      
       <div className="w-28 shrink-0">
         <p className="text-white font-bold text-sm">#{order.orderNumber}</p>
         <p className="text-zinc-500 text-xs mt-0.5">Table {order.tableNumber}
@@ -60,7 +61,7 @@ export default function OrderCard({ order, onClick }: Props) {
     )}</p>
       </div>
 
-      {/* Items */}
+
       <div className="flex-1 min-w-0">
         <p className="text-zinc-300 text-sm truncate">
           {order.items.slice(0, 2).map(i => `${i.quantity}x ${i.name}`).join(', ')}
@@ -69,7 +70,7 @@ export default function OrderCard({ order, onClick }: Props) {
         <p className="text-zinc-600 text-xs mt-0.5">{order.items.length} items</p>
       </div>
 
-      {/* Status */}
+      
       <div className="shrink-0">
         <span className={`flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full ${statusCfg.color}`}>
           <StatusIcon className="w-3 h-3" />
@@ -77,7 +78,7 @@ export default function OrderCard({ order, onClick }: Props) {
         </span>
       </div>
 
-      {/* Payment */}
+      
       <div className="shrink-0 w-20 text-center">
         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${paymentColor}`}>
           {order.paymentStatus
@@ -85,13 +86,13 @@ export default function OrderCard({ order, onClick }: Props) {
             : 'Unknown'}
         </span>
       </div>
-       {/* Footer — Time column */}
+       
       <div className="shrink-0 w-28 text-right"> 
         <p className="text-zinc-300 text-xs">{timeFormatted}</p>   
         <p className="text-zinc-600 text-xs mt-0.5">{dateFormatted}</p> 
       </div>
 
-       {/* Total */}
+
       <div className="shrink-0 w-20 text-right">
         <p className="text-orange-400 font-bold text-sm">₹{order.totalAmount}</p>
       </div>

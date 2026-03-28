@@ -3,7 +3,7 @@ import Order from '../models/Order';
 import Bill from '../models/Bill';
 import mongoose from 'mongoose';
 
-// Helper: IST-aware date range
+
 const getDateRange = (req: Request) => {
   const { startDate, endDate } = req.query;
 
@@ -30,7 +30,7 @@ const getDateRange = (req: Request) => {
   return { start, end };
 };
 
-// 1. DASHBOARD STATS
+
 export const getDashboardStats = async (req: Request, res: Response) => {
   try {
     const restaurantId = (req as any).user.restaurantId;
@@ -103,110 +103,87 @@ export const getDashboardStats = async (req: Request, res: Response) => {
   }
 };
 
-// 2. HOURLY SALES 
+
 export const getHourlySales = async (req: Request, res: Response) => {
   try {
     const restaurantId = (req as any).user.restaurantId;
-    const { start, end } = getDateRange(req);
+    const { start, end } = getDateRange(req); 
 
-    const data = await Order.aggregate([
+    const data = await Bill.aggregate([
       {
         $match: {
-          restaurant: new mongoose.Types.ObjectId(restaurantId as string),
-          status: { $in: ['served', 'billed'] },
-          createdAt: { $gte: start, $lte: end },
+          restaurant:    new mongoose.Types.ObjectId(restaurantId as string),
+          paymentStatus: 'paid',
+          createdAt:     { $gte: start, $lte: end },
         },
       },
       {
         $group: {
-          _id: { $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } },
-          totalOrders: { $sum: 1 },
+          _id:          { $hour: { date: '$createdAt', timezone: 'Asia/Kolkata' } },
+          totalOrders:  { $sum: 1 },
           totalRevenue: { $sum: '$totalAmount' },
         },
       },
       { $sort: { _id: 1 } },
       {
         $project: {
-          hour: '$_id',
-          label: {
-            $concat: [
-              { $toString: '$_id' },
-              ':00 - ',
-              { $toString: { $add: ['$_id', 1] } },
-              ':00',
-            ],
-          },
-          totalOrders: 1,
+          hour:         '$_id',
+          totalOrders:  1,
           totalRevenue: 1,
-          _id: 0,
+          _id:          0,
         },
       },
     ]);
 
-    res.json({
-      success: true,
-      period: { start, end },
-      hourlySales: data,
-    });
+    res.json({ success: true, period: { start, end }, hourlySales: data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error', error });
   }
 };
 
-// 3. WEEKLY REVENUE 
 export const getWeeklyRevenue = async (req: Request, res: Response) => {
   try {
     const restaurantId = (req as any).user.restaurantId;
-
-    // Last 7 days by default
-    const end = new Date(new Date().setHours(23, 59, 59, 999));
-    const start = new Date(end);
-    start.setDate(start.getDate() - 6);
-    start.setHours(0, 0, 0, 0);
+    const { start, end } = getDateRange(req); 
 
     const data = await Bill.aggregate([
       {
         $match: {
-          restaurant: new mongoose.Types.ObjectId(restaurantId as string),
+          restaurant:    new mongoose.Types.ObjectId(restaurantId as string),
           paymentStatus: 'paid',
-          createdAt: { $gte: start, $lte: end },
+          createdAt:     { $gte: start, $lte: end },
         },
       },
       {
         $group: {
           _id: {
             $dateToString: {
-              format: '%Y-%m-%d',
-              date: '$createdAt',
+              format:   '%Y-%m-%d',
+              date:     '$createdAt',
               timezone: 'Asia/Kolkata',
             },
           },
           totalRevenue: { $sum: '$totalAmount' },
-          totalOrders: { $sum: 1 },
+          totalOrders:  { $sum: 1 },
         },
       },
       { $sort: { _id: 1 } },
       {
         $project: {
-          date: '$_id',
+          date:         '$_id',
           totalRevenue: 1,
-          totalOrders: 1,
-          _id: 0,
+          totalOrders:  1,
+          _id:          0,
         },
       },
     ]);
 
-    res.json({
-      success: true,
-      period: { start, end },
-      weeklyRevenue: data,
-    });
+    res.json({ success: true, period: { start, end }, weeklyRevenue: data });
   } catch (error) {
     res.status(500).json({ success: false, message: 'Server error', error });
   }
 };
 
-// 4. CATEGORY-WISE SALES 
 export const getCategorySales = async (req: Request, res: Response) => {
   try {
     const restaurantId = (req as any).user.restaurantId;
@@ -269,7 +246,7 @@ export const getCategorySales = async (req: Request, res: Response) => {
   }
 };
 
-// 5. TABLE TURNOVER 
+
 export const getTableTurnover = async (req: Request, res: Response) => {
   try {
     const restaurantId = (req as any).user.restaurantId;

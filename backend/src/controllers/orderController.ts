@@ -8,9 +8,10 @@ import Recipe from '../models/Recipe';
 import RawMaterial from '../models/RawMaterial';
 import { calculateDeduction } from '../utils/unitConverter';
 import RawMaterialLog from '../models/RawMaterialLog';
+import Bill from '../models/Bill';
 
 
-// Helper — restaurantId
+
 const getRestaurantId = (req: Request) => {
   const user = (req as any).user;
   const restaurant = user?.restaurant;
@@ -63,7 +64,7 @@ export const createOrder = async (req: Request, res: Response) => {
     const tax = Math.round(subtotal * 0.05 * 100) / 100;
     const totalAmount = subtotal + tax;
 
-     // Order number generate — safe way
+     
 const lastOrder = await Order.findOne({ restaurant: restaurantId })
   .sort({ createdAt: -1 })
   .select('orderNumber');
@@ -76,7 +77,7 @@ if (lastOrder?.orderNumber) {
 
 let orderNumber = `ORD-${String(nextNum).padStart(4, '0')}`;
 
-// Collision check — double safety
+
 const exists = await Order.findOne({ orderNumber });
 if (exists) {
   orderNumber = `ORD-${String(nextNum + 1).padStart(4, '0')}`;
@@ -98,7 +99,7 @@ const order = await Order.create({
 
     await Table.findByIdAndUpdate(tableId, { status: 'occupied' });
 
-    //  notify Kitchen at real-time 
+ 
     emitNewOrder(io, restaurantId, {
       orderId: order._id,
       orderNumber: order.orderNumber,
@@ -108,7 +109,7 @@ const order = await Order.create({
       status: order.status,
       createdAt: (order as any).createdAt
     });
-// Per-Station emit
+
 const stationGroups: { [key: string]: any[] } = {};
 
     for (const item of order.items) {
@@ -138,7 +139,7 @@ const stationGroups: { [key: string]: any[] } = {};
   }
 };
 
-// Get All Orders
+
 export const getOrders = async (req: Request, res: Response) => {
   try {
     const restaurantId = getRestaurantId(req);
@@ -159,7 +160,7 @@ export const getOrders = async (req: Request, res: Response) => {
   }
 };
 
-// Get Single Order
+
 export const getOrderById = async (req: Request, res: Response) => {
   try {
     const order = await Order.findById(req.params.id)
@@ -174,7 +175,7 @@ export const getOrderById = async (req: Request, res: Response) => {
   }
 };
 
-// Update Order Status
+
 export const updateOrderStatus = async (req: Request, res: Response) => {
   try {
     const { status, cancellationReason } = req.body;
@@ -274,7 +275,7 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
           createdBy: undefined,
         });
 
-        // Low Stock Alert
+        
         if (updatedMaterial && updatedMaterial.currentStock <= updatedMaterial.minThreshold) {
           io.to(`restaurant_${restaurantId}`).emit('low_stock_alert', {
             materialId: updatedMaterial._id,
@@ -305,19 +306,95 @@ export const updateOrderStatus = async (req: Request, res: Response) => {
   }
 };
 
-// Update Payment
+
 export const updatePayment = async (req: Request, res: Response) => {
   try {
     const { paymentStatus, paymentMethod } = req.body;
-    const order = await Order.findByIdAndUpdate(
-      req.params.id,
-      { paymentStatus, paymentMethod },
-      { new: true }
-    );
+    const restaurantId = getRestaurantId(req);
+    const userId = (req as any).user.id;
 
-    if (!order) return res.status(404).json({ success: false, message: 'Order not found' });
+    
+    const order = await Order.findById(req.params.id);
+    if (!order) {
+      return res.status(404).json({ success: false, message: 'Order not found' });
+    }
 
-    res.json({ success: true, message: 'Payment updated!', order });
+    
+    if (order.status === 'billed') {
+      return res.status(400).json({ success: false, message: 'Order already billed!' });
+    }
+
+    
+    order.paymentStatus = paymentStatus;
+    order.paymentMethod = paymentMethod;
+    order.status        = 'billed';        
+    await order.save();
+
+    
+    const lastBill = await Bill.findOne({ restaurant: restaurantId })
+      .sort({ createdAt: -1 })
+      .select('billNumber');
+
+    let nextNum = 1;
+    if (lastBill?.billNumber) {
+      const lastNum = parseInt(lastBill.billNumber.replace('BILL-', '')) || 0;
+      nextNum = lastNum + 1;
+    }
+    const billNumber = `BILL-${String(nextNum).padStart(4, '0')}`;
+
+    
+    const bill = await Bill.create({
+      restaurant:    restaurantId,
+      order:         order._id,
+      table:         order.table,
+      tableNumber:   order.tableNumber,
+      orderNumber:   order.orderNumber,
+      customerName:  (order as any).customerName  ?? '',
+      customerPhone: (order as any).customerPhone ?? '',
+      items:         order.items.map((item: any) => ({
+        menuItem:  item.menuItem,
+        name:      item.name,
+        price:     item.price,
+        quantity:  item.quantity,
+        gstRate:   5,
+        itemTotal: item.price * item.quantity,
+      })),
+      subtotal:      order.subtotal,
+      cgst:          Math.round((order.tax / 2) * 100) / 100,
+      sgst:          Math.round((order.tax / 2) * 100) / 100,
+      totalTax:      order.tax,
+      discount:      order.discount   ?? 0,
+      serviceCharge: (order as any).serviceCharge ?? 0,
+      totalAmount:   order.totalAmount,
+      billNumber,
+      paymentMode:   paymentMethod,   
+      paymentStatus: 'paid',
+      paidAt:        new Date(),
+      createdBy:     userId,
+    });
+
+    
+    await Table.findByIdAndUpdate(order.table, { status: 'available' });
+
+    
+    if (restaurantId) {
+      io.to(`restaurant_${restaurantId}`).emit('order_billed', {
+        orderId:     order._id,
+        orderNumber: order.orderNumber,
+        tableNumber: order.tableNumber,
+        status:      'billed',
+        billId:      bill._id,
+        billNumber,
+      });
+    }
+
+    res.json({
+      success: true,
+      message: 'Payment done & Bill created!',
+      order,
+      bill,
+    });
+
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

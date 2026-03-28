@@ -1,99 +1,109 @@
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/axios';
-import { useAuthStore } from '../store/authStore';
+import { useSocket } from './useSocket';
 
 export interface OrderItem {
   menuItem: string;
-  name: string;
-  price: number;
+  name:     string;
+  price:    number;
   quantity: number;
-  notes?: string;
+  notes?:   string;
   station?: string;
 }
 
 export interface Order {
-  _id: string;
-  orderNumber: string;
-  tableNumber: string;
-  tableFloor?: string;   
-  table: string | { _id: string; tableNumber: string; floor?: string };
-  items: OrderItem[];
-  status: 'pending' | 'accepted' | 'preparing' | 'ready' | 'served' | 'cancelled';
-  paymentStatus: 'unpaid' | 'paid' | 'refunded';
-  paymentMethod?: 'cash' | 'card' | 'upi';
-  subtotal: number;
-  tax: number;
-  discount: number;
-  totalAmount: number;
-  notes?: string;
-  cancellationReason?: string; 
-  createdAt: string;
-  updatedAt: string;
+  _id:                 string;
+  orderNumber:         string;
+  table:               string | { _id: string; floor?: string };
+  tableNumber:         string;
+  items:               OrderItem[];
+  status:              'pending' | 'accepted' | 'preparing' | 'ready' | 'served' | 'billed' | 'cancelled';
+  paymentStatus:       'unpaid' | 'paid' | 'refunded';
+  paymentMethod?:      string;
+  subtotal:            number;
+  tax:                 number;
+  discount:            number;
+  totalAmount:         number;
+  notes?:              string;
+  cancellationReason?: string;
+  createdAt:           string;
+  updatedAt:           string;
 }
 
-// GET all orders
-export function useOrders(status?: string, tableId?: string) {
-  const { user } = useAuthStore();
+export const useOrders = (status?: string) => {
+  const queryClient = useQueryClient();
+  const { on, off } = useSocket();          
 
-  return useQuery<Order[]>({
-    queryKey: ['orders', status, tableId],
-    enabled: !!user,
+  useEffect(() => {
+    const refresh = () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    };
+
+    on('new_order',       refresh);
+    on('order_accepted',  refresh);
+    on('order_preparing', refresh);
+    on('order_ready',     refresh);
+    on('order_cancelled', refresh);
+    on('order_billed',    refresh);
+
+    return () => {
+      off('new_order',       refresh);
+      off('order_accepted',  refresh);
+      off('order_preparing', refresh);
+      off('order_ready',     refresh);
+      off('order_cancelled', refresh);
+      off('order_billed',    refresh);
+    };
+  }, [on, off, queryClient]);
+
+  return useQuery({
+    queryKey: ['orders', status],
     queryFn: async () => {
-      const params = new URLSearchParams();
-      if (status) params.append('status', status);
-      if (tableId) params.append('table', tableId);
-
-      const { data } = await api.get(`/orders?${params.toString()}`);
-      if (Array.isArray(data)) return data;
-      if (Array.isArray(data?.data)) return data.data;
-      if (Array.isArray(data?.orders)) return data.orders;
-      return [];
+      const params = status ? { status } : {};
+      const { data } = await api.get('/orders', { params });
+      return data.orders as Order[];
     },
+    refetchInterval: 30000,
   });
-}
+};
 
-// GET single order
-export function useOrderById(id: string) {
-  return useQuery<Order>({
-    queryKey: ['order', id],
-    enabled: !!id,
-    queryFn: async () => {
-      const { data } = await api.get(`/orders/${id}`);
-      return data?.order || data;
-    },
-  });
-}
-
-// Update order status
-export function useUpdateOrderStatus() {
+export const useUpdateOrderStatus = () => {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, status, cancellationReason }: { 
-      id: string; 
-      status: Order['status'];
-      cancellationReason?: string; 
+    mutationFn: async ({
+      id, status, cancellationReason,
+    }: {
+      id: string; status: string; cancellationReason?: string;
     }) => {
-      const { data } = await api.patch(`/orders/${id}/status`, { status, cancellationReason });
-      return data;
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['orders'] }),
-  });
-}
-
-// Update payment
-export function useUpdatePayment() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: async ({ id, paymentStatus, paymentMethod }: {
-      id: string;
-      paymentStatus: string;
-      paymentMethod?: string;
-    }) => {
-      const { data } = await api.patch(`/orders/${id}/payment`, { paymentStatus, paymentMethod });
+      const { data } = await api.patch(`/orders/${id}/status`, {
+        status,
+        ...(cancellationReason && { cancellationReason }),
+      });
       return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orders'] });
     },
   });
-}
+};
+
+export const useUpdatePayment = () => {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      id, paymentStatus, paymentMethod,
+    }: {
+      id: string; paymentStatus: string; paymentMethod?: string;
+    }) => {
+      const { data } = await api.patch(`/orders/${id}/payment`, {
+        paymentStatus,
+        paymentMethod,
+      });
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['orders'] });
+    },
+  });
+};

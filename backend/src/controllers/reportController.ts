@@ -12,22 +12,39 @@ const getRestaurantId = (req: Request) => {
   return restaurant.toString();
 };
 
-// Date range helper
+
 const getDateRange = (req: Request) => {
   const { startDate, endDate } = req.query;
 
+  const toStart = (dateStr: string) => {
+    
+    return new Date(dateStr + 'T00:00:00+05:30');
+  };
+
+  const toEnd = (dateStr: string) => {
+    
+    return new Date(dateStr + 'T23:59:59+05:30');
+  };
+
+  
+  const nowIST   = new Date(Date.now() + 5.5 * 60 * 60 * 1000);
+  const todayIST = nowIST.toISOString().split('T')[0]; 
+
+  
+  const monthStart = `${nowIST.getUTCFullYear()}-${String(nowIST.getUTCMonth() + 1).padStart(2, '0')}-01`;
+
   const start = startDate
-    ? new Date(startDate as string)
-    : new Date(new Date().setHours(0, 0, 0, 0)); // Aaj ka start
+    ? toStart(startDate as string)
+    : toStart(monthStart);  
 
   const end = endDate
-    ? new Date(endDate as string)
-    : new Date(new Date().setHours(23, 59, 59, 999)); // Aaj ka end
+    ? toEnd(endDate as string)   
+    : toEnd(todayIST);            
 
   return { start, end };
 };
 
-// 1. Sales Summary
+
 export const getSalesSummary = async (req: Request, res: Response) => {
   try {
     const restaurantId = getRestaurantId(req);
@@ -61,7 +78,7 @@ export const getSalesSummary = async (req: Request, res: Response) => {
   }
 };
 
-// 2. Revenue Report — Day wise breakdown
+
 export const getRevenueReport = async (req: Request, res: Response) => {
   try {
     const restaurantId = getRestaurantId(req);
@@ -98,7 +115,7 @@ export const getRevenueReport = async (req: Request, res: Response) => {
   }
 };
 
-// 3. GST Report
+
 export const getGSTReport = async (req: Request, res: Response) => {
   try {
     const restaurantId = getRestaurantId(req);
@@ -112,10 +129,10 @@ export const getGSTReport = async (req: Request, res: Response) => {
 
     const totalTaxableAmount = orders.reduce((sum, o) => sum + o.subtotal, 0);
     const totalGST = orders.reduce((sum, o) => sum + o.tax, 0);
-    const cgst = totalGST / 2;  // 2.5%
-    const sgst = totalGST / 2;  // 2.5%
+    const cgst = totalGST / 2;  
+    const sgst = totalGST / 2;  
 
-    // Month wise GST breakdown
+    
     const monthlyGST = await Order.aggregate([
       {
         $match: {
@@ -153,7 +170,7 @@ export const getGSTReport = async (req: Request, res: Response) => {
   }
 };
 
-// 4. Top Selling Items
+
 export const getTopItems = async (req: Request, res: Response) => {
   try {
     const restaurantId = getRestaurantId(req);
@@ -190,7 +207,7 @@ export const getTopItems = async (req: Request, res: Response) => {
   }
 };
 
-// 5. Payment Mode Report
+
 export const getPaymentReport = async (req: Request, res: Response) => {
   try {
     const restaurantId = getRestaurantId(req);
@@ -206,9 +223,9 @@ export const getPaymentReport = async (req: Request, res: Response) => {
       },
       {
         $group: {
-          _id: '$paymentMethod',
+          _id:         '$paymentMode',        
           totalAmount: { $sum: '$totalAmount' },
-          count: { $sum: 1 }
+          count:       { $sum: 1 }
         }
       },
       { $sort: { totalAmount: -1 } }
@@ -224,7 +241,7 @@ export const getPaymentReport = async (req: Request, res: Response) => {
   }
 };
 
-// 6. Daily Summary — Today Total
+
 export const getDailySummary = async (req: Request, res: Response) => {
   try {
     const restaurantId = getRestaurantId(req);

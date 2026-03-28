@@ -16,7 +16,7 @@ export interface IOrder extends Document {
   tableNumber: string;
   orderNumber: string;
   items: IOrderItem[];
-  status: 'pending' | 'accepted' | 'preparing' | 'ready' | 'served' | 'cancelled';
+  status: 'pending' | 'accepted' | 'preparing' | 'ready' | 'served' | 'cancelled' | 'billed';
   paymentStatus: 'unpaid' | 'paid' | 'refunded';
   paymentMethod?: 'cash' | 'card' | 'upi';
   subtotal: number;
@@ -52,7 +52,7 @@ const OrderSchema = new Schema<IOrder>(
     items: [OrderItemSchema],
     status: {
       type: String,
-      enum: ['pending', 'accepted', 'preparing', 'ready', 'served', 'cancelled'],
+      enum: ['pending', 'accepted', 'preparing', 'ready', 'served', 'cancelled','billed'],
       default: 'pending',
       cancellationReason: { type: String, default: '' },
     },
