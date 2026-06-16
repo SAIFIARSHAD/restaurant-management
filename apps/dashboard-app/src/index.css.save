@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-slate-950 text-white antialiased;
+    font-family: Inter, system-ui, sans-serif;
+  }
+
+  * {
+    @apply border-slate-800;
+  }
+
+  #root {
+    min-height: 100vh;
+  }
+}
+
+@layer components {
+  .input-field {
+    @apply w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-slate-500 outline-none transition-all duration-200;
+  }
+
+  .input-field:focus {
+    @apply border-orange-400/40 ring-2 ring-orange-500/20;
+  }
+
+  .sidebar-item {
+    @apply flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-medium text-slate-400 transition-all duration-200 hover:bg-white/5 hover:text-white;
+  }
+
+  .sidebar-item-active {
+    @apply flex items-center gap-3 rounded-2xl px-4 py-3 text-sm font-semibold text-white bg-gradient-to-r from-orange-500/20 to-orange-400/10 border border-orange-400/30 shadow-[0_0_0_1px_rgba(251,146,60,0.15)] hover:from-orange-5    @apply flex items-cent15    @apply flex items{
+             un        b             un        b   ite/5 b    rop-blur-xl;
+  }
+}
+
+@layer utilities {
+  .text-gradient {
+    @apply bg-gradient-to-r from-orange-400 to-    r-    @apply bg-gradient-to-rpa  nt;    @app.s    @apply bg-gradienms  verflow-style: none;
+                   : none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  .scrollbar-thin-dark::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .scrollbar-thin-dark::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .scrollbar
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+           : 1;
+  }
+}
