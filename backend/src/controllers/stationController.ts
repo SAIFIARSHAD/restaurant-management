@@ -1,8 +1,8 @@
 import { Request, Response } from 'express';
+import Station from '../models/Station';
 import Order from '../models/Order';
-import MenuItem from '../models/MenuItem';
 
-const getRestaurantId = (req: Request) => {
+const getRestaurantId = (req: Request): string | null => {
   const user = (req as any).user;
   const restaurant = user?.restaurant;
   if (!restaurant) return null;
@@ -11,121 +11,112 @@ const getRestaurantId = (req: Request) => {
   return restaurant.toString();
 };
 
-// Create Station (MenuItem assign station)
-export const createStation = async (req: Request, res: Response) => {
+// POST /api/stations
+export const createStation = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { menuItemId, station } = req.body;
-
-    const menuItem = await MenuItem.findByIdAndUpdate(
-      menuItemId,
-      { station },
-      { new: true }
-    );
-
-    if (!menuItem) {
-      return res.status(404).json({ success: false, message: 'MenuItem not found' });
+    const restaurantId = getRestaurantId(req);
+    if (!restaurantId) {
+      res.status(400).json({ success: false, message: 'Restaurant not found' });
+      return;
     }
 
-    res.json({ success: true, message: `Station '${station}' assigned!`, menuItem });
+    const { name, stationType, color } = req.body;
+
+    const station = await Station.create({
+      name,
+      stationType,
+      color: color || '#6366f1',
+      restaurant: restaurantId,
+    });
+
+    res.status(201).json({ success: true, message: 'Station created!', station });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Get All Stations (distinct stations in menu)
-export const getStations = async (req: Request, res: Response) => {
+// GET /api/stations
+export const getStations = async (req: Request, res: Response): Promise<void> => {
   try {
     const restaurantId = getRestaurantId(req);
 
-    const stations = await MenuItem.distinct('station', {
+    const stations = await Station.find({
       restaurant: restaurantId,
-      station: { $ne: null }
-    });
+      isActive: true,
+    }).sort({ createdAt: 1 });
 
-    res.json({ success: true, stations });
+    res.status(200).json({ success: true, stations });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Get Orders By Station Type
-export const getStationOrders = async (req: Request, res: Response) => {
+// GET /api/stations/orders/:stationType
+export const getStationOrders = async (req: Request, res: Response): Promise<void> => {
   try {
     const restaurantId = getRestaurantId(req);
     const { stationType } = req.params;
-    const { status } = req.query;
 
-    const filter: any = {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const orders = await Order.find({
       restaurant: restaurantId,
-      'items.station': stationType,
-      status: { $nin: ['served', 'cancelled'] } // default active orders
-    };
-
-    if (status) filter.status = status; 
-
-    const orders = await Order.find(filter)
+      status: { $in: ['pending', 'accepted', 'preparing'] },
+      createdAt: { $gte: today },
+    })
       .populate('table', 'tableNumber floor')
-      .sort({ createdAt: 1 }); // Older order first
+      .sort({ createdAt: 1 });
 
-   
-    const filteredOrders = orders.map(order => ({
-      _id: order._id,
-      orderNumber: order.orderNumber,
-      tableNumber: order.tableNumber,
-      status: order.status,
-      notes: order.notes,
-      createdAt: (order as any).createdAt,
-      items: order.items.filter(
-        (item: any) => item.station === stationType
-      )
-    }));
+    // Filter only items belonging to this station
+    const stationOrders = orders
+      .map((order) => {
+        const stationItems = order.items.filter(
+          (item: any) => item.station === stationType
+        );
+        if (stationItems.length === 0) return null;
 
-    res.json({
-      success: true,
-      stationType,
-      count: filteredOrders.length,
-      orders: filteredOrders
+        return {
+          _id: order._id,
+          orderNumber: order.orderNumber,
+          tableNumber: order.tableNumber,
+          status: order.status,
+          notes: order.notes,
+          createdAt: (order as any).createdAt,
+          items: stationItems,
+        };
+      })
+      .filter(Boolean);
+
+    res.status(200).json({ success: true, orders: stationOrders });
+  } catch (error: any) {
+    res.status(500).json({ success: false, message: error.message });
+  }
+};
+
+// PATCH /api/stations/:id
+export const updateStation = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const station = await Station.findByIdAndUpdate(req.params.id, req.body, {
+      new: true,
     });
+
+    if (!station) {
+      res.status(404).json({ success: false, message: 'Station not found' });
+      return;
+    }
+
+    res.status(200).json({ success: true, message: 'Station updated!', station });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }
 };
 
-// Update Station (Change MenuItem station)
-export const updateStation = async (req: Request, res: Response) => {
+// DELETE /api/stations/:id
+export const deleteStation = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { station } = req.body;
-
-    const menuItem = await MenuItem.findByIdAndUpdate(
-      req.params.id,
-      { station },
-      { new: true }
-    );
-
-    if (!menuItem) {
-      return res.status(404).json({ success: false, message: 'MenuItem not found' });
-    }
-
-    res.json({ success: true, message: 'Station updated!', menuItem });
-  } catch (error: any) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-};
-
-// Delete Station (Remove station field)
-export const deleteStation = async (req: Request, res: Response) => {
-  try {
-    const menuItem = await MenuItem.findByIdAndUpdate(
-      req.params.id,
-      { $unset: { station: '' } },
-      { new: true }
-    );
-
-    if (!menuItem) {
-      return res.status(404).json({ success: false, message: 'MenuItem not found' });
-    }
-
-    res.json({ success: true, message: 'Station removed!', menuItem });
+    await Station.findByIdAndDelete(req.params.id);
+    res.status(200).json({ success: true, message: 'Station deleted!' });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

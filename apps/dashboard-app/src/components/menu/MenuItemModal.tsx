@@ -10,18 +10,29 @@ interface Props {
   isLoading?: boolean;
 }
 
+const STATION_OPTIONS = [
+  { value: 'kitchen', label: 'Kitchen (Main Course)' },
+  { value: 'grill', label: 'Grill / Tandoor' },
+  { value: 'drinks', label: 'Drinks / Beverages' },
+  { value: 'dessert', label: 'Desserts' },
+  { value: 'other', label: 'Other' },
+];
+
 const getInitialForm = (item: MenuItem | null | undefined) => ({
   name: item?.name ?? '',
   price: item ? String(item.price) : '',
+  discountedPrice: item?.discountedPrice ? String(item.discountedPrice) : '',
   category: item?.category?._id ?? '',
   description: item?.description ?? '',
   isVeg: item?.isVeg ?? true,
   isAvailable: item?.isAvailable ?? true,
+  preparationTime: item?.preparationTime ? String(item.preparationTime) : '15',
+  station: (item?.station ?? 'kitchen') as 'grill' | 'drinks' | 'kitchen' | 'dessert' | 'other',
 });
 
 export default function MenuItemModal({ isOpen, onClose, onSubmit, editItem, isLoading }: Props) {
   const { data: categories = [] } = useCategories();
-  const addCategoryMutation = useAddCategory(); // ✅ Hook se direct use karo
+  const addCategoryMutation = useAddCategory();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [form, setForm] = useState(() => getInitialForm(editItem));
@@ -36,10 +47,9 @@ export default function MenuItemModal({ isOpen, onClose, onSubmit, editItem, isL
     setFile(null);
     setShowNewCategory(false);
     setNewCategoryName('');
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [editItem, isOpen]);
 
-  
   const handleAddCategory = () => {
     if (!newCategoryName.trim()) return;
     addCategoryMutation.mutate(newCategoryName.trim(), {
@@ -68,6 +78,9 @@ export default function MenuItemModal({ isOpen, onClose, onSubmit, editItem, isL
     fd.append('description', form.description);
     fd.append('isVeg', String(form.isVeg));
     fd.append('isAvailable', String(form.isAvailable));
+    fd.append('preparationTime', form.preparationTime);
+    fd.append('station', form.station);
+    if (form.discountedPrice) fd.append('discountedPrice', form.discountedPrice);
     if (file) fd.append('image', file);
     onSubmit(fd);
   };
@@ -76,7 +89,7 @@ export default function MenuItemModal({ isOpen, onClose, onSubmit, editItem, isL
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md p-6 relative">
+      <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-md p-6 relative max-h-[90vh] overflow-y-auto">
 
         {/* Header */}
         <div className="flex items-center justify-between mb-5">
@@ -116,18 +129,36 @@ export default function MenuItemModal({ isOpen, onClose, onSubmit, editItem, isL
             className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-orange-500"
           />
 
-          {/* Price + Category */}
+          {/* Price + Discounted Price */}
           <div className="grid grid-cols-2 gap-3">
-            <input
-              type="number"
-              placeholder="Price (₹)"
-              value={form.price}
-              onChange={(e) => setForm({ ...form, price: e.target.value })}
-              required
-              className="bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-orange-500"
-            />
+            <div>
+              <label className="text-zinc-400 text-xs mb-1 block">Price (₹) *</label>
+              <input
+                type="number"
+                placeholder="e.g. 120"
+                value={form.price}
+                onChange={(e) => setForm({ ...form, price: e.target.value })}
+                required
+                min={0}
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-orange-500"
+              />
+            </div>
+            <div>
+              <label className="text-zinc-400 text-xs mb-1 block">Discounted Price (₹)</label>
+              <input
+                type="number"
+                placeholder="e.g. 99"
+                value={form.discountedPrice}
+                onChange={(e) => setForm({ ...form, discountedPrice: e.target.value })}
+                min={0}
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-orange-500"
+              />
+            </div>
+          </div>
 
-            {/* Category Dropdown OR Inline Create */}
+          {/* Category */}
+          <div>
+            <label className="text-zinc-400 text-xs mb-1 block">Category *</label>
             {!showNewCategory ? (
               <select
                 value={form.category}
@@ -139,7 +170,7 @@ export default function MenuItemModal({ isOpen, onClose, onSubmit, editItem, isL
                   }
                 }}
                 required
-                className="bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-orange-500"
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-orange-500"
               >
                 <option value="">Select Category</option>
                 {categories.map((c) => (
@@ -154,7 +185,7 @@ export default function MenuItemModal({ isOpen, onClose, onSubmit, editItem, isL
                   placeholder="Category name"
                   value={newCategoryName}
                   onChange={(e) => setNewCategoryName(e.target.value)}
-                  onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()} 
+                  onKeyDown={(e) => e.key === 'Enter' && handleAddCategory()}
                   autoFocus
                   className="flex-1 bg-zinc-800 border border-orange-500 rounded-lg px-3 py-2.5 text-white text-sm placeholder-zinc-500 focus:outline-none min-w-0"
                 />
@@ -175,6 +206,36 @@ export default function MenuItemModal({ isOpen, onClose, onSubmit, editItem, isL
                 </button>
               </div>
             )}
+          </div>
+
+          {/* Station + Prep Time */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="text-zinc-400 text-xs mb-1 block">Kitchen Station *</label>
+              <select
+                value={form.station}
+                onChange={(e) =>
+                setForm({...form,station: e.target.value as 'grill' | 'drinks' | 'kitchen' | 'dessert' | 'other',})}
+                required
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-white text-sm focus:outline-none focus:border-orange-500"
+              >
+                {STATION_OPTIONS.map((s) => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-zinc-400 text-xs mb-1 block">Prep Time (mins)</label>
+              <input
+                type="number"
+                placeholder="15"
+                value={form.preparationTime}
+                onChange={(e) => setForm({ ...form, preparationTime: e.target.value })}
+                min={1}
+                max={120}
+                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-4 py-2.5 text-white text-sm placeholder-zinc-500 focus:outline-none focus:border-orange-500"
+              />
+            </div>
           </div>
 
           {/* Description */}

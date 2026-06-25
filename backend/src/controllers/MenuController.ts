@@ -3,7 +3,6 @@ import MenuCategory from '../models/MenuCategory';
 import MenuItem from '../models/MenuItem';
 import cloudinary from '../config/cloudinary';
 
-
 // @POST /api/menu/categories
 export const createCategory = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -20,7 +19,7 @@ export const createCategory = async (req: Request, res: Response): Promise<void>
   }
 };
 
-// @GET /api/menu/categories/ restaurantId
+// @GET /api/menu/categories/:restaurantId
 export const getCategories = async (req: Request, res: Response): Promise<void> => {
   try {
     const categories = await MenuCategory.find({
@@ -34,7 +33,7 @@ export const getCategories = async (req: Request, res: Response): Promise<void> 
   }
 };
 
-// @PUT /api/menu/categories/ id
+// @PUT /api/menu/categories/:id
 export const updateCategory = async (req: Request, res: Response): Promise<void> => {
   try {
     const category = await MenuCategory.findByIdAndUpdate(
@@ -50,7 +49,7 @@ export const updateCategory = async (req: Request, res: Response): Promise<void>
   }
 };
 
-// @DELETE /api/menu/categories/ id
+// @DELETE /api/menu/categories/:id
 export const deleteCategory = async (req: Request, res: Response): Promise<void> => {
   try {
     await MenuCategory.findByIdAndDelete(req.params.id);
@@ -60,12 +59,9 @@ export const deleteCategory = async (req: Request, res: Response): Promise<void>
   }
 };
 
-// ITEM CONTROLLERS
-
 // @POST /api/menu/items
 export const createItem = async (req: Request, res: Response): Promise<void> => {
   try {
-   
     const restaurant = req.body.restaurantId || (req as any).user?.restaurant;
     const imageUrl = (req.file as any)?.path || '';
 
@@ -73,11 +69,20 @@ export const createItem = async (req: Request, res: Response): Promise<void> => 
       name: req.body.name,
       description: req.body.description || '',
       price: Number(req.body.price),
+      discountedPrice: req.body.discountedPrice ? Number(req.body.discountedPrice) : undefined,
       category: req.body.category,
       restaurant,
-      isVeg: req.body.isVeg === 'true',
-      isAvailable: req.body.isAvailable === 'true',
-      image: imageUrl, 
+      isVeg: req.body.isVeg === 'true' || req.body.isVeg === true,
+      isAvailable: req.body.isAvailable === 'true' || req.body.isAvailable === true,
+      preparationTime: req.body.preparationTime ? Number(req.body.preparationTime) : 15,
+      tags: req.body.tags
+        ? typeof req.body.tags === 'string'
+          ? JSON.parse(req.body.tags)
+          : req.body.tags
+        : [],
+      sortOrder: req.body.sortOrder ? Number(req.body.sortOrder) : 0,
+      station: req.body.station || 'kitchen',
+      image: imageUrl,
     });
 
     res.status(201).json({ success: true, message: 'Item created!', item });
@@ -86,21 +91,13 @@ export const createItem = async (req: Request, res: Response): Promise<void> => 
   }
 };
 
-
-
-
 // @GET /api/menu/items/:restaurantId
 export const getItems = async (req: Request, res: Response): Promise<void> => {
   try {
     const { category } = req.query;
-    
-      const filter: any = {
-      restaurant: req.params.restaurantId,
-    };
 
-    if (category) {
-      filter.category = category;
-    }
+    const filter: any = { restaurant: req.params.restaurantId };
+    if (category) filter.category = category;
 
     const items = await MenuItem.find(filter)
       .populate('category', 'name')
@@ -112,7 +109,6 @@ export const getItems = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
-
 // @PUT /api/menu/items/:id
 export const updateItem = async (req: Request, res: Response): Promise<void> => {
   try {
@@ -122,15 +118,25 @@ export const updateItem = async (req: Request, res: Response): Promise<void> => 
       updateData.image = (req.file as any)?.path || '';
     }
 
-    if (updateData.price) updateData.price = Number(updateData.price);
-    if (updateData.isVeg !== undefined) updateData.isVeg = updateData.isVeg === 'true';
-    if (updateData.isAvailable !== undefined) updateData.isAvailable = updateData.isAvailable === 'true';
+    if (updateData.price !== undefined) updateData.price = Number(updateData.price);
+    if (updateData.discountedPrice !== undefined)
+      updateData.discountedPrice = updateData.discountedPrice
+        ? Number(updateData.discountedPrice)
+        : undefined ;
+    if (updateData.isVeg !== undefined)
+      updateData.isVeg = updateData.isVeg === 'true' || updateData.isVeg === true;
+    if (updateData.isAvailable !== undefined)
+      updateData.isAvailable =
+        updateData.isAvailable === 'true' || updateData.isAvailable === true;
+    if (updateData.preparationTime !== undefined)
+      updateData.preparationTime = Number(updateData.preparationTime);
+    if (updateData.sortOrder !== undefined)
+      updateData.sortOrder = Number(updateData.sortOrder);
+    if (updateData.tags && typeof updateData.tags === 'string') {
+      updateData.tags = JSON.parse(updateData.tags);
+    }
 
-    const item = await MenuItem.findByIdAndUpdate(
-      req.params.id,
-      updateData,
-      { new: true }
-    );
+    const item = await MenuItem.findByIdAndUpdate(req.params.id, updateData, { new: true });
 
     if (!item) {
       res.status(404).json({ success: false, message: 'Item not found' });
@@ -142,7 +148,6 @@ export const updateItem = async (req: Request, res: Response): Promise<void> => 
     res.status(500).json({ success: false, message: error.message });
   }
 };
-
 
 // @DELETE /api/menu/items/:id
 export const deleteItem = async (req: Request, res: Response): Promise<void> => {
@@ -157,18 +162,16 @@ export const deleteItem = async (req: Request, res: Response): Promise<void> => 
 // @PUT /api/menu/items/:id/toggle
 export const toggleAvailability = async (req: Request, res: Response): Promise<void> => {
   try {
-            
     const item = await MenuItem.findById(req.params.id);
-    
     const newStatus = !(item?.isAvailable as boolean);
- 
+
     const updatedItem = await MenuItem.findByIdAndUpdate(
       req.params.id,
       { isAvailable: newStatus },
       { new: true }
     );
 
-     res.status(200).json({ success: true, message: 'Toggled!', item: updatedItem });
+    res.status(200).json({ success: true, message: 'Toggled!', item: updatedItem });
   } catch (error: any) {
     res.status(500).json({ success: false, message: error.message });
   }

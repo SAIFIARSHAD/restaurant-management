@@ -1,33 +1,25 @@
 import mongoose, { Document, Schema } from 'mongoose';
 
 export interface IStation extends Document {
-  restaurant: mongoose.Types.ObjectId;
   name: string;
-  type: 'grill' | 'drinks' | 'kitchen' | 'dessert' | 'other';
+  stationType: string;
+  color: string;
+  restaurant: mongoose.Types.ObjectId;
   isActive: boolean;
 }
 
 const StationSchema = new Schema<IStation>(
   {
-    restaurant: { 
-      type: Schema.Types.ObjectId, 
-      ref: 'Restaurant', 
-      required: true 
-    },
-    name: { 
-      type: String, 
-      required: true,
-      trim: true
-    },
-    type: {
+    name: { type: String, required: true, trim: true },
+    stationType: {
       type: String,
+      required: true,
       enum: ['grill', 'drinks', 'kitchen', 'dessert', 'other'],
-      default: 'kitchen'
+      default: 'kitchen',
     },
-    isActive: { 
-      type: Boolean, 
-      default: true 
-    }
+    color: { type: String, default: '#6366f1' },
+    restaurant: { type: Schema.Types.ObjectId, ref: 'Restaurant', required: true },
+    isActive: { type: Boolean, default: true },
   },
   { timestamps: true }
 );

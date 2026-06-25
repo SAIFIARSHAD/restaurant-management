@@ -2,22 +2,24 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import api from '../api/axios';
 import { useAuthStore } from '../store/authStore';
 
-
 export interface Category {
   _id: string;
   name: string;
 }
 
-
 export interface MenuItem {
   _id: string;
   name: string;
   price: number;
+  discountedPrice?: number;
   category: Category;
   isAvailable: boolean;
   isVeg: boolean;
   image?: string;
   description?: string;
+  preparationTime?: number;
+  station?: 'grill' | 'drinks' | 'kitchen' | 'dessert' | 'other';
+  tags?: string[];
 }
 
 // GET /api/menu/categories/:restaurantId
@@ -59,33 +61,29 @@ export function useMenuItems(categoryId?: string) {
   });
 }
 
-
-// POST /api/menu/categories  (JWT se restaurant auto attach hoga)
+// POST /api/menu/categories
 export function useAddCategory() {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
   return useMutation({
     mutationFn: async (name: string) => {
-      const { data } = await api.post('/menu/categories', { name ,
-    restaurantId: user?.restaurant, });
+      const { data } = await api.post('/menu/categories', {
+        name,
+        restaurantId: user?.restaurant,
+      });
       return data;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['categories'] }),
   });
 }
 
-// POST /api/menu/items  (JWT se restaurant auto attach hoga)
+// POST /api/menu/items
 export function useAddMenuItem() {
   const queryClient = useQueryClient();
   const { user } = useAuthStore();
   return useMutation({
     mutationFn: async (formData: FormData) => {
-        formData.append('restaurantId', user?.restaurant ?? '');
-        
-        for (const [key, value] of formData.entries()) {
-        console.log(key, value);
-      }
-
+      formData.append('restaurantId', user?.restaurant ?? '');
       const { data } = await api.post('/menu/items', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
@@ -120,12 +118,12 @@ export function useDeleteMenuItem() {
   });
 }
 
-// PUT /api/menu/items/:id  (availability toggle)
+// PATCH /api/menu/items/:id/toggle
 export function useToggleAvailability() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, isAvailable }: { id: string; isAvailable: boolean }) => {
-      const { data } = await api.put(`/menu/items/${id}/toggle`, { isAvailable });
+    mutationFn: async ({ id }: { id: string; isAvailable: boolean }) => {
+      const { data } = await api.patch(`/menu/items/${id}/toggle`);
       return data;
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ['menu-items'] }),
