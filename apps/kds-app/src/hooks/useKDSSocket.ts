@@ -15,7 +15,6 @@ export const useKDSSocket = (
 ) => {
   const {
     addOrUpdateOrder,
-    removeOrder,
     updateOrderStatus,
     updateItemStatus,
     setIsConnected,
@@ -32,7 +31,6 @@ export const useKDSSocket = (
     socket.on('connect', () => setIsConnected(true));
     socket.on('disconnect', () => setIsConnected(false));
 
-    // New order aaya station par
     socket.on('new_station_order', (payload: NewStationOrderPayload) => {
       const order: IOrder = {
         _id: payload.orderId,
@@ -47,17 +45,14 @@ export const useKDSSocket = (
       addOrUpdateOrder(order);
     });
 
-    // Full order status update
     socket.on('order_status_updated', (payload: OrderStatusUpdatedPayload) => {
       updateOrderStatus(payload.orderId, payload.status);
     });
 
-    // Station-specific order status update
     socket.on('station_order_status_updated', (payload: OrderStatusUpdatedPayload) => {
       updateOrderStatus(payload.orderId, payload.status);
     });
 
-    // Item-level status update
     socket.on('item_status_updated', (payload: ItemStatusUpdatedPayload) => {
       updateItemStatus(
         payload.orderId,
@@ -67,9 +62,8 @@ export const useKDSSocket = (
       );
     });
 
-    // Order cancelled
     socket.on('order_cancelled', (payload: OrderCancelledPayload) => {
-      removeOrder(payload.orderId);
+      updateOrderStatus(payload.orderId, 'cancelled');
     });
 
     return () => {
@@ -82,5 +76,5 @@ export const useKDSSocket = (
       socket.off('order_cancelled');
       disconnectSocket();
     };
-  }, [restaurantId, stationType]);
+  }, [restaurantId, stationType, addOrUpdateOrder, updateOrderStatus, updateItemStatus, setIsConnected]);
 };

@@ -8,6 +8,8 @@ import type {
 
 interface OrdersFilterParams {
   station?: string;
+  from?: string;
+  to?: string;
   fromDate?: string;
   toDate?: string;
 }
@@ -16,8 +18,12 @@ const buildQuery = (params: OrdersFilterParams) => {
   const query = new URLSearchParams();
 
   if (params.station) query.append('station', params.station);
-  if (params.fromDate) query.append('fromDate', params.fromDate);
-  if (params.toDate) query.append('toDate', params.toDate);
+
+  const fromValue = params.from ?? params.fromDate;
+  const toValue = params.to ?? params.toDate;
+
+  if (fromValue) query.append('fromDate', fromValue);
+  if (toValue) query.append('toDate', toValue);
 
   const queryString = query.toString();
   return queryString ? `?${queryString}` : '';
@@ -41,9 +47,15 @@ export const getCompletedOrders = async (
 
 export const updateOrderStatus = async (
   orderId: string,
-  status: OrderStatus
+  status: OrderStatus,
+  cancellationReason?: string
 ): Promise<IOrder> => {
-  const res = await api.patch(`/kds/orders/${orderId}/status`, { status });
+  const body =
+    status === 'cancelled' && cancellationReason
+      ? { status, cancellationReason }
+      : { status };
+
+  const res = await api.patch(`/kds/orders/${orderId}/status`, body);
   return res.data.order;
 };
 

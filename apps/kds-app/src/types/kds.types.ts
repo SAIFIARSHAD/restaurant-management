@@ -62,6 +62,7 @@ export interface IOrder {
   status: OrderStatus;
   items: IOrderItem[];
   notes?: string;
+  cancellationReason?: string;
   createdAt: string;
   updatedAt: string;
 }
