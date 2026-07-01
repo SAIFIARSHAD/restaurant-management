@@ -2,19 +2,43 @@ import { Router } from 'express';
 import {
   getKitchenOrders,
   updateKitchenOrderStatus,
-  getCompletedOrders
+  getCompletedOrders,
+  updateKitchenItemStatus,
 } from '../controllers/kdsController';
 import { protect, authorize } from '../middleware/auth';
 
 const router = Router();
 
-// Kitchen orders (pending + preparing)
-router.get('/orders', protect, authorize('admin', 'kitchen'), getKitchenOrders);
+// Active orders for KDS board (optional ?station= filter)
+router.get(
+  '/orders',
+  protect,
+  authorize('admin', 'kitchen'),
+  getKitchenOrders
+);
 
-// Kitchen status update
-router.patch('/orders/:id/status', protect, authorize('admin', 'kitchen'), updateKitchenOrderStatus);
+// Today's completed orders (optional ?station= filter)
+router.get(
+  '/orders/completed',
+  protect,
+  authorize('admin', 'kitchen'),
+  getCompletedOrders
+);
 
-// Today completed orders
-router.get('/orders/completed', protect, authorize('admin', 'kitchen'), getCompletedOrders);
+// Full order-level status update from KDS
+router.patch(
+  '/orders/:id/status',
+  protect,
+  authorize('admin', 'kitchen'),
+  updateKitchenOrderStatus
+);
+
+// ← NEW: Item-level status update — multi-station KDS core action
+router.patch(
+  '/orders/:orderId/items/:itemId/status',
+  protect,
+  authorize('admin', 'kitchen'),
+  updateKitchenItemStatus
+);
 
 export default router;

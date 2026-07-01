@@ -1,57 +1,92 @@
-import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import type { KDSOrder, StationSession } from '../types/kds';
+import create from 'zustand';
+import type {
+  IOrder,
+  IStation,
+  KDSUser,
+  OrderItemStatus,
+  OrderStatus,
+} from '../types/kds.types';
 
 interface KDSStore {
-  session: StationSession | null;
-  orders: KDSOrder[];
-  completedOrders: KDSOrder[];
-  setSession: (session: StationSession) => void;
-  setOrders: (orders: KDSOrder[]) => void;
-  addOrder: (order: KDSOrder) => void;
-  updateOrderStatus: (orderId: string, status: KDSOrder['status']) => void;
+  user: KDSUser | null;
+  setUser: (user: KDSUser | null) => void;
+
+  selectedStation: IStation | null;
+  setSelectedStation: (station: IStation | null) => void;
+
+  orders: IOrder[];
+  completedOrders: IOrder[];
+  setOrders: (orders: IOrder[]) => void;
+  setCompletedOrders: (orders: IOrder[]) => void;
+
+  addOrUpdateOrder: (incoming: IOrder) => void;
   removeOrder: (orderId: string) => void;
-  setCompletedOrders: (orders: KDSOrder[]) => void;
-  clearSession: () => void;
+  updateOrderStatus: (orderId: string, status: OrderStatus) => void;
+  updateItemStatus: (
+    orderId: string,
+    itemId: string,
+    status: OrderItemStatus,
+    newOrderStatus: OrderStatus
+  ) => void;
+
+  isConnected: boolean;
+  setIsConnected: (val: boolean) => void;
 }
 
-export const useKDSStore = create<KDSStore>()(
-  persist(
-    (set) => ({
-      session: null,
-      orders: [],
-      completedOrders: [],
+export const useKDSStore = create<KDSStore>((set) => ({
+  user: null,
+  setUser: (user) => set({ user }),
 
-      setSession: (session) => set({ session }),
+  selectedStation: null,
+  setSelectedStation: (station) => set({ selectedStation: station }),
 
-      setOrders: (orders) => set({ orders }),
+  orders: [],
+  completedOrders: [],
+  setOrders: (orders) => set({ orders }),
+  setCompletedOrders: (orders) => set({ completedOrders: orders }),
 
-      addOrder: (order) =>
-        set((state) => {
-          const exists = state.orders.find((o) => o._id === order._id);
-          if (exists) return state;
-          return { orders: [order, ...state.orders] };
-        }),
+  addOrUpdateOrder: (incoming) =>
+    set((state) => {
+      const exists = state.orders.find((o) => o._id === incoming._id);
 
-      updateOrderStatus: (orderId, status) =>
-        set((state) => ({
+      if (exists) {
+        return {
           orders: state.orders.map((o) =>
-            o._id === orderId ? { ...o, status } : o
+            o._id === incoming._id ? { ...o, ...incoming } : o
           ),
-        })),
+        };
+      }
 
-      removeOrder: (orderId) =>
-        set((state) => ({
-          orders: state.orders.filter((o) => o._id !== orderId),
-        })),
-
-      setCompletedOrders: (completedOrders) => set({ completedOrders }),
-
-      clearSession: () =>
-        set({ session: null, orders: [], completedOrders: [] }),
+      return { orders: [incoming, ...state.orders] };
     }),
-    {
-      name: 'kds-store',
-    }
-  )
-);
+
+  removeOrder: (orderId) =>
+    set((state) => ({
+      orders: state.orders.filter((o) => o._id !== orderId),
+    })),
+
+  updateOrderStatus: (orderId, status) =>
+    set((state) => ({
+      orders: state.orders.map((o) =>
+        o._id === orderId ? { ...o, status } : o
+      ),
+    })),
+
+  updateItemStatus: (orderId, itemId, status, newOrderStatus) =>
+    set((state) => ({
+      orders: state.orders.map((o) => {
+        if (o._id !== orderId) return o;
+
+        return {
+          ...o,
+          status: newOrderStatus,
+          items: o.items.map((item) =>
+            item._id === itemId ? { ...item, status } : item
+          ),
+        };
+      }),
+    })),
+
+  isConnected: false,
+  setIsConnected: (val) => set({ isConnected: val }),
+}));
