@@ -7,7 +7,40 @@ import type {
   ItemStatusUpdatedPayload,
   OrderCancelledPayload,
   IOrder,
+  OrderStatus,
+  OrderItemStatus,
 } from '../types/kds.types';
+
+const VALID_ORDER_STATUSES: OrderStatus[] = [
+  'pending',
+  'accepted',
+  'preparing',
+  'ready',
+  'served',
+  'billed',
+  'cancelled',
+];
+
+const VALID_ITEM_STATUSES: OrderItemStatus[] = [
+  'pending',
+  'accepted',
+  'preparing',
+  'ready',
+  'served',
+  'cancelled',
+];
+
+const normalizeOrderStatus = (status: unknown): OrderStatus => {
+  if (typeof status !== 'string') return 'pending';
+  const normalized = status.trim().toLowerCase() as OrderStatus;
+  return VALID_ORDER_STATUSES.includes(normalized) ? normalized : 'pending';
+};
+
+const normalizeItemStatus = (status: unknown): OrderItemStatus => {
+  if (typeof status !== 'string') return 'pending';
+  const normalized = status.trim().toLowerCase() as OrderItemStatus;
+  return VALID_ITEM_STATUSES.includes(normalized) ? normalized : 'pending';
+};
 
 export const useKDSSocket = (
   restaurantId: string,
@@ -32,33 +65,39 @@ export const useKDSSocket = (
     socket.on('disconnect', () => setIsConnected(false));
 
     socket.on('new_station_order', (payload: NewStationOrderPayload) => {
+      const normalizedOrderStatus = normalizeOrderStatus(payload.status);
+
       const order: IOrder = {
         _id: payload.orderId,
         orderNumber: payload.orderNumber,
         tableNumber: payload.tableNumber,
-        status: payload.status,
-        items: payload.items,
+        status: normalizedOrderStatus,
+        items: (payload.items || []).map((item) => ({
+          ...item,
+          status: normalizeItemStatus(item.status ?? normalizedOrderStatus),
+        })),
         notes: payload.notes,
         createdAt: payload.createdAt,
         updatedAt: payload.createdAt,
       };
+
       addOrUpdateOrder(order);
     });
 
     socket.on('order_status_updated', (payload: OrderStatusUpdatedPayload) => {
-      updateOrderStatus(payload.orderId, payload.status);
+      updateOrderStatus(payload.orderId, normalizeOrderStatus(payload.status));
     });
 
     socket.on('station_order_status_updated', (payload: OrderStatusUpdatedPayload) => {
-      updateOrderStatus(payload.orderId, payload.status);
+      updateOrderStatus(payload.orderId, normalizeOrderStatus(payload.status));
     });
 
     socket.on('item_status_updated', (payload: ItemStatusUpdatedPayload) => {
       updateItemStatus(
         payload.orderId,
         payload.itemId,
-        payload.newStatus,
-        payload.orderStatus
+        normalizeItemStatus(payload.newStatus),
+        normalizeOrderStatus(payload.orderStatus)
       );
     });
 
@@ -76,5 +115,12 @@ export const useKDSSocket = (
       socket.off('order_cancelled');
       disconnectSocket();
     };
-  }, [restaurantId, stationType, addOrUpdateOrder, updateOrderStatus, updateItemStatus, setIsConnected]);
+  }, [
+    restaurantId,
+    stationType,
+    addOrUpdateOrder,
+    updateOrderStatus,
+    updateItemStatus,
+    setIsConnected,
+  ]);
 };

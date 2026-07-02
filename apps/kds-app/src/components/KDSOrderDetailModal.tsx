@@ -1,7 +1,13 @@
 import { useState } from 'react';
 import { X, AlertTriangle } from 'lucide-react';
 import type { IOrder, OrderStatus } from '../types/kds.types';
-import { STATUS_CONFIG, DEFAULT_STATUS, formatDateTime } from './KDSOrderCard';
+import {
+  STATUS_CONFIG,
+  DEFAULT_STATUS,
+  formatDateTime,
+  normalizeStatus,
+  getSafeStatusConfig,
+} from './KDSOrderCard';
 
 interface Props {
   order: IOrder;
@@ -20,9 +26,17 @@ const STATUS_FLOW: OrderStatus[] = [
   'billed',
 ];
 
-function statusChipClasses(status: OrderStatus) {
-  const cfg = STATUS_CONFIG[status as keyof typeof STATUS_CONFIG] ?? DEFAULT_STATUS;
+function statusChipClasses(status: unknown) {
+  const cfg = getSafeStatusConfig(status);
   return cfg.color;
+}
+
+function getPrimaryActionLabel(status: OrderStatus): string | null {
+  if (status === 'pending') return 'Accept Order';
+  if (status === 'accepted') return 'Start Cooking';
+  if (status === 'preparing') return 'Mark Ready';
+  if (status === 'ready') return 'Serve Order';
+  return null;
 }
 
 export default function KDSOrderDetailModal({
@@ -36,10 +50,12 @@ export default function KDSOrderDetailModal({
   const [cancelReason, setCancelReason] = useState('');
   const [cancelError, setCancelError] = useState('');
 
-  const cfg = STATUS_CONFIG[order.status as keyof typeof STATUS_CONFIG] ?? DEFAULT_STATUS;
+  const safeOrderStatus = normalizeStatus(order.status);
+  const cfg = getSafeStatusConfig(order.status) ?? DEFAULT_STATUS;
   const StatusIcon = cfg.icon;
-  const currentIndex = STATUS_FLOW.indexOf(order.status);
-  const nextStatus = STATUS_FLOW[currentIndex + 1];
+  const currentIndex = STATUS_FLOW.indexOf(safeOrderStatus);
+  const nextStatus = currentIndex >= 0 ? STATUS_FLOW[currentIndex + 1] : 'accepted';
+  const primaryActionLabel = getPrimaryActionLabel(safeOrderStatus);
   const { dateFormatted, timeFormatted } = formatDateTime(order.createdAt);
 
   const handleCancelConfirm = async () => {
@@ -55,12 +71,12 @@ export default function KDSOrderDetailModal({
 
   return (
     <>
-      <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div className="bg-zinc-900 border border-zinc-800 rounded-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 p-4 sm:p-5 border-b border-zinc-800">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm">
+        <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-800 bg-zinc-900">
+          <div className="flex flex-col gap-3 border-b border-zinc-800 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
             <div>
-              <h2 className="text-white font-bold text-lg">#{order.orderNumber}</h2>
-              <p className="text-zinc-400 text-sm">
+              <h2 className="text-lg font-bold text-white">#{order.orderNumber}</h2>
+              <p className="text-sm text-zinc-400">
                 Table {order.tableNumber || order.table?.tableNumber || '--'}
                 {order.table?.floor && (
                   <span className="ml-1 text-zinc-500">· {order.table.floor} Floor</span>
@@ -68,121 +84,127 @@ export default function KDSOrderDetailModal({
               </p>
             </div>
 
-            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-              <span className={`flex items-center gap-1 text-xs font-medium px-3 py-1.5 rounded-full ${cfg.color}`}>
-                <StatusIcon className="w-3.5 h-3.5" />
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <span
+                className={`flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium ${cfg.color}`}
+              >
+                <StatusIcon className="h-3.5 w-3.5" />
                 {cfg.label}
               </span>
 
               <button
                 onClick={onClose}
-                className="p-1.5 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white transition-colors"
+                className="rounded-lg bg-zinc-800 p-1.5 text-zinc-400 transition-colors hover:bg-zinc-700 hover:text-white"
               >
-                <X className="w-4 h-4" />
+                <X className="h-4 w-4" />
               </button>
             </div>
           </div>
 
-          {order.status === 'cancelled' && order.cancellationReason && (
-            <div className="mx-5 mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-lg">
-              <p className="text-red-400 text-xs font-semibold uppercase tracking-wider mb-1">
+          {safeOrderStatus === 'cancelled' && order.cancellationReason && (
+            <div className="mx-5 mt-4 rounded-lg border border-red-500/20 bg-red-500/10 p-3">
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-red-400">
                 Cancellation Reason
               </p>
-              <p className="text-zinc-300 text-sm">{order.cancellationReason}</p>
+              <p className="text-sm text-zinc-300">{order.cancellationReason}</p>
             </div>
           )}
 
-          <div className="p-5 border-b border-zinc-800">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-zinc-400 text-xs font-semibold uppercase tracking-wider">
+          <div className="border-b border-zinc-800 p-5">
+            <div className="mb-3 flex items-center justify-between">
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-zinc-400">
                 Order Overview
               </h3>
             </div>
 
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="text-zinc-500 text-xs">Created</p>
-                <p className="text-zinc-200 mt-0.5">
+                <p className="text-xs text-zinc-500">Created</p>
+                <p className="mt-0.5 text-zinc-200">
                   {dateFormatted}, {timeFormatted}
                 </p>
               </div>
 
               <div>
-                <p className="text-zinc-500 text-xs">Items</p>
-                <p className="text-zinc-200 mt-0.5">{order.items.length}</p>
+                <p className="text-xs text-zinc-500">Items</p>
+                <p className="mt-0.5 text-zinc-200">{order.items.length}</p>
               </div>
             </div>
           </div>
 
-          <div className="p-5 border-b border-zinc-800">
-            <h3 className="text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-3">
+          <div className="border-b border-zinc-800 p-5">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wider text-zinc-400">
               Order Items
             </h3>
 
             <div className="space-y-3">
-              {order.items.map((item) => (
-                <div
-                  key={item._id}
-                  className="rounded-lg border border-zinc-800 bg-zinc-800/40 p-3"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <p className="text-white text-sm font-medium">
-                        {item.quantity}x {item.name}
-                      </p>
+              {order.items.map((item) => {
+                const safeItemStatus = normalizeStatus(item.status);
 
-                      {item.station && (
-                        <p className="text-zinc-600 text-xs mt-0.5 capitalize">
-                          {item.station}
+                return (
+                  <div
+                    key={item._id}
+                    className="rounded-lg border border-zinc-800 bg-zinc-800/40 p-3"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-white">
+                          {item.quantity}x {item.name}
                         </p>
-                      )}
 
-                      {item.notes && (
-                        <p className="text-zinc-500 text-xs mt-1">Note: {item.notes}</p>
-                      )}
+                        {item.station && (
+                          <p className="mt-0.5 text-xs capitalize text-zinc-600">
+                            {item.station}
+                          </p>
+                        )}
+
+                        {item.notes && (
+                          <p className="mt-1 text-xs text-zinc-500">Note: {item.notes}</p>
+                        )}
+                      </div>
+
+                      <span
+                        className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-medium capitalize ${statusChipClasses(
+                          safeItemStatus
+                        )}`}
+                      >
+                        {STATUS_CONFIG[safeItemStatus]?.label ?? 'Pending'}
+                      </span>
                     </div>
-
-                    <span
-                      className={`shrink-0 text-xs font-medium px-2.5 py-1 rounded-full capitalize ${statusChipClasses(order.status)}`}
-                    >
-                      {order.status}
-                    </span>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
           {order.notes && (
-            <div className="mx-5 mt-4 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-              <p className="text-amber-400 text-xs font-semibold uppercase tracking-wider mb-1">
+            <div className="mx-5 mt-4 rounded-lg border border-amber-500/20 bg-amber-500/10 p-3">
+              <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-amber-400">
                 Special Instructions
               </p>
-              <p className="text-zinc-300 text-sm">{order.notes}</p>
+              <p className="text-sm text-zinc-300">{order.notes}</p>
             </div>
           )}
 
-          <div className="p-5 space-y-3">
-            {order.status !== 'served' &&
-              order.status !== 'cancelled' &&
-              order.status !== 'billed' && (
-                <div className="flex flex-col sm:flex-row gap-2">
-                  {nextStatus && (
+          <div className="space-y-3 p-5">
+            {safeOrderStatus !== 'served' &&
+              safeOrderStatus !== 'cancelled' &&
+              safeOrderStatus !== 'billed' && (
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  {nextStatus && primaryActionLabel && (
                     <button
                       onClick={() => onAdvanceOrder(order, nextStatus)}
                       disabled={actionLoadingId === order._id}
-                      className="flex-1 bg-orange-500 hover:bg-orange-600 text-white py-2.5 rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                      className="flex-1 rounded-lg bg-orange-500 py-2.5 text-sm font-medium text-white transition-colors hover:bg-orange-600 disabled:opacity-50"
                     >
-                      Mark as{' '}
-                      {STATUS_CONFIG[nextStatus as keyof typeof STATUS_CONFIG]?.label ??
-                        nextStatus}
+                      {primaryActionLabel}
                     </button>
                   )}
 
                   <button
                     onClick={() => setShowCancelModal(true)}
                     disabled={actionLoadingId === order._id}
-                    className="px-4 py-2.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg text-sm font-medium transition-colors"
+                    className="rounded-lg bg-red-500/20 px-4 py-2.5 text-sm font-medium text-red-400 transition-colors hover:bg-red-500/30"
                   >
                     Cancel Order
                   </button>
@@ -191,7 +213,7 @@ export default function KDSOrderDetailModal({
 
             <button
               onClick={onClose}
-              className="w-full py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-sm font-medium transition-colors"
+              className="w-full rounded-lg bg-zinc-800 py-2.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700"
             >
               Close
             </button>
@@ -200,21 +222,21 @@ export default function KDSOrderDetailModal({
       </div>
 
       {showCancelModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-zinc-900 border border-red-500/30 rounded-2xl w-full max-w-sm p-6 space-y-4">
-            <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
-              <div className="p-2 bg-red-500/20 rounded-lg">
-                <AlertTriangle className="w-5 h-5 text-red-400" />
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
+          <div className="w-full max-w-sm space-y-4 rounded-2xl border border-red-500/30 bg-zinc-900 p-6">
+            <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+              <div className="rounded-lg bg-red-500/20 p-2">
+                <AlertTriangle className="h-5 w-5 text-red-400" />
               </div>
 
               <div>
-                <h3 className="text-white font-bold">Cancel Order</h3>
-                <p className="text-zinc-500 text-xs">#{order.orderNumber}</p>
+                <h3 className="font-bold text-white">Cancel Order</h3>
+                <p className="text-xs text-zinc-500">#{order.orderNumber}</p>
               </div>
             </div>
 
             <div>
-              <label className="text-zinc-400 text-xs font-semibold uppercase tracking-wider mb-2 block">
+              <label className="mb-2 block text-xs font-semibold uppercase tracking-wider text-zinc-400">
                 Cancellation Reason *
               </label>
 
@@ -226,24 +248,24 @@ export default function KDSOrderDetailModal({
                 }}
                 placeholder="e.g. Customer request, Item unavailable..."
                 rows={3}
-                className="w-full bg-zinc-800 border border-zinc-700 focus:border-red-500 rounded-lg px-3 py-2 text-white text-sm placeholder-zinc-600 focus:outline-none resize-none"
+                className="w-full resize-none rounded-lg border border-zinc-700 bg-zinc-800 px-3 py-2 text-sm text-white placeholder-zinc-600 focus:border-red-500 focus:outline-none"
               />
 
-              {cancelError && (
-                <p className="text-red-400 text-xs mt-1">{cancelError}</p>
-              )}
+              {cancelError && <p className="mt-1 text-xs text-red-400">{cancelError}</p>}
             </div>
 
             <div className="flex flex-wrap gap-2">
-              {['Customer request', 'Item unavailable', 'Wrong order', 'Kitchen issue'].map((r) => (
-                <button
-                  key={r}
-                  onClick={() => setCancelReason(r)}
-                  className="text-xs px-3 py-1 bg-zinc-800 hover:bg-zinc-700 text-zinc-400 rounded-full transition-colors"
-                >
-                  {r}
-                </button>
-              ))}
+              {['Customer request', 'Item unavailable', 'Wrong order', 'Kitchen issue'].map(
+                (r) => (
+                  <button
+                    key={r}
+                    onClick={() => setCancelReason(r)}
+                    className="rounded-full bg-zinc-800 px-3 py-1 text-xs text-zinc-400 transition-colors hover:bg-zinc-700"
+                  >
+                    {r}
+                  </button>
+                )
+              )}
             </div>
 
             <div className="flex gap-2 pt-1">
@@ -253,7 +275,7 @@ export default function KDSOrderDetailModal({
                   setCancelReason('');
                   setCancelError('');
                 }}
-                className="flex-1 py-2.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg text-sm font-medium transition-colors"
+                className="flex-1 rounded-lg bg-zinc-800 py-2.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-zinc-700"
               >
                 Go Back
               </button>
@@ -261,7 +283,7 @@ export default function KDSOrderDetailModal({
               <button
                 onClick={handleCancelConfirm}
                 disabled={actionLoadingId === order._id}
-                className="flex-1 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-50"
+                className="flex-1 rounded-lg bg-red-500 py-2.5 text-sm font-medium text-white transition-colors hover:bg-red-600 disabled:opacity-50"
               >
                 {actionLoadingId === order._id ? 'Cancelling...' : 'Confirm Cancel'}
               </button>

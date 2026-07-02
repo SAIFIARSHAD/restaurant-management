@@ -4,6 +4,10 @@ import type { IOrderItem, OrderStatus } from '../models/Order';
 import { io } from '../server';
 import { emitToStation } from '../socket/socketHandler';
 import { recalculateOrderStatus } from './orderController';
+import Recipe from '../models/Recipe';
+import RawMaterial from '../models/RawMaterial';
+import RawMaterialLog from '../models/RawMaterialLog';
+import { calculateDeduction } from '../utils/unitConverter';
 
 const getRestaurantId = (req: Request): string | null => {
   const fromHeader = req.headers['x-restaurant-id'] as string;
@@ -24,8 +28,76 @@ const getTodayStart = (): Date => {
   return today;
 };
 
+const deductInventoryForOrder = async (order: any, restaurantId: string) => {
+  for (const item of order.items as any[]) {
+    const recipe = await Recipe.findOne({
+      menuItem: item.menuItem,
+      isActive: true,
+    });
+
+    if (!recipe) {
+      console.log(`No recipe found for menuItem: ${item.menuItem}`);
+      continue;
+    }
+
+    for (const ingredient of recipe.ingredients) {
+      const rawMaterial = await RawMaterial.findById(ingredient.rawMaterial);
+      if (!rawMaterial) continue;
+
+      const deductAmount = calculateDeduction(
+        ingredient.quantity,
+        ingredient.unit,
+        rawMaterial.unit,
+        item.quantity
+      );
+
+      const previousStock = rawMaterial.currentStock;
+
+      await RawMaterial.findByIdAndUpdate(ingredient.rawMaterial, {
+        $inc: { currentStock: -deductAmount },
+      });
+
+      console.log(
+        `KDS stock deducted: ${rawMaterial.name} → -${deductAmount} ${rawMaterial.unit}`
+      );
+
+      const updatedMaterial = await RawMaterial.findById(ingredient.rawMaterial);
+
+      await RawMaterialLog.create({
+        restaurant: restaurantId,
+        rawMaterial: ingredient.rawMaterial,
+        type: 'auto_deduct',
+        quantity: deductAmount,
+        unit: rawMaterial.unit,
+        previousStock,
+        newStock: updatedMaterial?.currentStock ?? 0,
+        reason: `Order #${order.orderNumber} — ${item.name} x${item.quantity}`,
+        orderId: order._id,
+        //createdBy: null,
+      });
+
+      if (
+        updatedMaterial &&
+        updatedMaterial.currentStock <= updatedMaterial.minThreshold
+      ) {
+        io.to(`restaurant_${restaurantId}`).emit('low_stock_alert', {
+          materialId: updatedMaterial._id,
+          name: updatedMaterial.name,
+          currentStock: updatedMaterial.currentStock,
+          minThreshold: updatedMaterial.minThreshold,
+          unit: updatedMaterial.unit,
+          message: `Low Stock! ${updatedMaterial.name} sirf ${updatedMaterial.currentStock} ${updatedMaterial.unit} bacha hai!`,
+        });
+      }
+    }
+  }
+};
+
 // GET /api/kds/orders
-export const getKitchenOrders = async (req: Request, res: Response): Promise<void> => {
+export const getKitchenOrders = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const restaurantId = getRestaurantId(req);
     const { station } = req.query;
@@ -75,7 +147,10 @@ export const getKitchenOrders = async (req: Request, res: Response): Promise<voi
 };
 
 // GET /api/kds/orders/completed
-export const getCompletedOrders = async (req: Request, res: Response): Promise<void> => {
+export const getCompletedOrders = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const restaurantId = getRestaurantId(req);
     const { station } = req.query;
@@ -125,7 +200,10 @@ export const getCompletedOrders = async (req: Request, res: Response): Promise<v
 };
 
 // PATCH /api/kds/orders/:id/status
-export const updateKitchenOrderStatus = async (req: Request, res: Response): Promise<void> => {
+export const updateKitchenOrderStatus = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { status } = req.body;
     const restaurantId = getRestaurantId(req);
@@ -141,10 +219,20 @@ export const updateKitchenOrderStatus = async (req: Request, res: Response): Pro
       return;
     }
 
-    const order = await Order.findById(req.params.id);
+    const order = await Order.findOne({
+      _id: req.params.id,
+      restaurant: restaurantId,
+    });
+
     if (!order) {
       res.status(404).json({ success: false, message: 'Order not found' });
       return;
+    }
+
+    const previousStatus = order.status;
+
+    if (status === 'preparing' && previousStatus !== 'preparing') {
+      await deductInventoryForOrder(order, restaurantId);
     }
 
     const itemStatusMap: Record<string, IOrderItem['status']> = {
@@ -216,7 +304,10 @@ export const updateKitchenOrderStatus = async (req: Request, res: Response): Pro
 };
 
 // PATCH /api/kds/orders/:orderId/items/:itemId/status
-export const updateKitchenItemStatus = async (req: Request, res: Response): Promise<void> => {
+export const updateKitchenItemStatus = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
   try {
     const { orderId, itemId } = req.params;
     const { status } = req.body;
@@ -282,6 +373,10 @@ export const updateKitchenItemStatus = async (req: Request, res: Response): Prom
     }
 
     const newOrderStatus = recalculateOrderStatus(order.items as IOrderItem[]);
+
+    if (newOrderStatus === 'preparing' && previousOrderStatus !== 'preparing') {
+      await deductInventoryForOrder(order, restaurantId);
+    }
 
     if (newOrderStatus !== previousOrderStatus) {
       order.status = newOrderStatus;
