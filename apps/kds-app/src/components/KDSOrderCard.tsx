@@ -4,6 +4,7 @@ import type { IOrder, OrderItemStatus, OrderStatus } from '../types/kds.types';
 interface Props {
   order: IOrder;
   elapsed: number;
+  elapsedLabel: string;
   onClick: () => void;
 }
 
@@ -56,7 +57,12 @@ export function formatDateTime(dateStr: string) {
   };
 }
 
-export default function KDSOrderCard({ order, elapsed, onClick }: Props) {
+export default function KDSOrderCard({
+  order,
+  elapsed,
+  elapsedLabel,
+  onClick,
+}: Props) {
   const safeStatus = normalizeStatus(order.status);
   const statusCfg = getSafeStatusConfig(order.status);
   const StatusIcon = statusCfg.icon;
@@ -86,7 +92,7 @@ export default function KDSOrderCard({ order, elapsed, onClick }: Props) {
           </div>
 
           <div className="shrink-0 text-right">
-            <p className="text-xs font-bold text-orange-400">{elapsed} min ago</p>
+            <p className="text-xs font-bold text-orange-400">{elapsedLabel} {elapsed} min</p>
             <p className="mt-1 text-[11px] text-zinc-500">{timeFormatted}</p>
             <p className="text-[11px] text-zinc-600">{dateFormatted}</p>
           </div>
@@ -153,8 +159,10 @@ export default function KDSOrderCard({ order, elapsed, onClick }: Props) {
           <p className="mt-0.5 text-xs text-zinc-600">{dateFormatted}</p>
         </div>
 
-        <div className="w-20 shrink-0 text-right">
-          <p className="text-xs font-bold text-orange-400">{elapsed} min</p>
+        <div className="w-24 shrink-0 text-right">
+          <p className="text-xs font-bold text-orange-400">
+            {elapsedLabel} {elapsed} min
+          </p>
         </div>
       </div>
     </div>

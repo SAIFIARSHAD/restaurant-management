@@ -275,10 +275,39 @@ export default function KDSBoardPage() {
     [filteredByDate]
   );
 
-  const getElapsedMinutes = (createdAt: string) => {
-    const created = new Date(createdAt).getTime();
-    return Math.max(0, Math.floor((now.getTime() - created) / 60000));
-  };
+const getElapsedMinutes = (order: IOrder) => {
+  const created = new Date(order.createdAt).getTime();
+  if (Number.isNaN(created)) return 0;
+
+  const freezeStatuses: OrderStatus[] = ['ready', 'served', 'billed'];
+
+  if (freezeStatuses.includes(order.status)) {
+    const itemReadyTimes = order.items
+      .map((item) => item.readyAt)
+      .filter(Boolean)
+      .map((value) => new Date(value as string).getTime())
+      .filter((time) => !Number.isNaN(time));
+
+    if (itemReadyTimes.length > 0) {
+      const freezeAt = Math.max(...itemReadyTimes);
+      return Math.max(0, Math.floor((freezeAt - created) / 60000));
+    }
+  }
+
+  return Math.max(0, Math.floor((now.getTime() - created) / 60000));
+};
+
+const getElapsedLabel = (status: OrderStatus) => {
+  if (status === 'pending' || status === 'accepted' || status === 'preparing') {
+    return 'Prep Time';
+  }
+
+  if (status === 'ready' || status === 'served' || status === 'billed') {
+    return 'Ready In';
+  }
+
+  return 'Prep Time';
+};
 
   const handleAdvanceOrder = async (order: IOrder, status: OrderStatus) => {
     try {
@@ -550,7 +579,7 @@ export default function KDSBoardPage() {
                 <div className="col-span-4">Items</div>
                 <div className="col-span-2">Status</div>
                 <div className="col-span-2">Date & Time</div>
-                <div className="col-span-1 text-right">Elapsed</div>
+                <div className="col-span-1 text-right">Time Taken</div>
               </div>
             )}
 
@@ -573,7 +602,8 @@ export default function KDSBoardPage() {
                   <KDSOrderCard
                     key={order._id}
                     order={order}
-                    elapsed={getElapsedMinutes(order.createdAt)}
+                    elapsed={getElapsedMinutes(order)}
+                    elapsedLabel={getElapsedLabel(order.status)}
                     onClick={() => setSelectedOrder(order)}
                   />
                 ))}

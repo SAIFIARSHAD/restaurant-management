@@ -28,6 +28,42 @@ const getTodayStart = (): Date => {
   return today;
 };
 
+const getTodayEnd = (): Date => {
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  return today;
+};
+
+const buildDateFilter = (req: Request): Record<string, any> => {
+  const { fromDate, toDate } = req.query;
+
+  if (fromDate || toDate) {
+    const range: Record<string, Date> = {};
+
+    if (fromDate && typeof fromDate === 'string') {
+      const from = new Date(fromDate);
+      if (!Number.isNaN(from.getTime())) {
+        range.$gte = from;
+      }
+    }
+
+    if (toDate && typeof toDate === 'string') {
+      const to = new Date(toDate);
+      if (!Number.isNaN(to.getTime())) {
+        range.$lte = to;
+      }
+    }
+
+    if (Object.keys(range).length > 0) {
+      return { createdAt: range };
+    }
+  }
+
+  return {
+    createdAt: { $gte: getTodayStart(), $lte: getTodayEnd() },
+  };
+};
+
 const deductInventoryForOrder = async (order: any, restaurantId: string) => {
   for (const item of order.items as any[]) {
     const recipe = await Recipe.findOne({
@@ -73,7 +109,6 @@ const deductInventoryForOrder = async (order: any, restaurantId: string) => {
         newStock: updatedMaterial?.currentStock ?? 0,
         reason: `Order #${order.orderNumber} — ${item.name} x${item.quantity}`,
         orderId: order._id,
-        //createdBy: null,
       });
 
       if (
@@ -107,10 +142,12 @@ export const getKitchenOrders = async (
       return;
     }
 
+    const dateFilter = buildDateFilter(req);
+
     const orders = await Order.find({
       restaurant: restaurantId,
       status: { $in: ['pending', 'accepted', 'preparing', 'ready'] },
-      createdAt: { $gte: getTodayStart() },
+      ...dateFilter,
     })
       .populate('table', 'tableNumber floor')
       .sort({ createdAt: 1 });
@@ -160,10 +197,12 @@ export const getCompletedOrders = async (
       return;
     }
 
+    const dateFilter = buildDateFilter(req);
+
     const orders = await Order.find({
       restaurant: restaurantId,
       status: { $in: ['ready', 'served', 'billed'] },
-      createdAt: { $gte: getTodayStart() },
+      ...dateFilter,
     })
       .sort({ createdAt: -1 })
       .limit(50);
