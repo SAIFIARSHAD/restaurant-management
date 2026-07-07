@@ -51,9 +51,38 @@ export const useKDSSocket = (
     updateOrderStatus,
     updateItemStatus,
     setIsConnected,
+    soundEnabled,
   } = useKDSStore();
 
   const socketRef = useRef<ReturnType<typeof connectSocket> | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
+  useEffect(() => {
+    const audio = new Audio('/sounds/new-order.mp3');
+    audio.preload = 'auto';
+
+    audio.onloadeddata = () => {
+      console.log('KDS audio loaded');
+    };
+
+    audio.onerror = () => {
+      console.error('KDS audio failed to load:', audio.src);
+    };
+
+    audioRef.current = audio;
+  }, []);
+
+  const playNewOrderSound = async () => {
+    if (!audioRef.current || !soundEnabled) return;
+
+    try {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
+      await audioRef.current.play();
+    } catch (error) {
+      console.warn('New order sound blocked:', error);
+    }
+  };
 
   useEffect(() => {
     if (!restaurantId) return;
@@ -64,7 +93,7 @@ export const useKDSSocket = (
     socket.on('connect', () => setIsConnected(true));
     socket.on('disconnect', () => setIsConnected(false));
 
-    socket.on('new_station_order', (payload: NewStationOrderPayload) => {
+    socket.on('new_station_order', async (payload: NewStationOrderPayload) => {
       const normalizedOrderStatus = normalizeOrderStatus(payload.status);
 
       const order: IOrder = {
@@ -82,6 +111,7 @@ export const useKDSSocket = (
       };
 
       addOrUpdateOrder(order);
+      await playNewOrderSound();
     });
 
     socket.on('order_status_updated', (payload: OrderStatusUpdatedPayload) => {
@@ -122,5 +152,6 @@ export const useKDSSocket = (
     updateOrderStatus,
     updateItemStatus,
     setIsConnected,
+    soundEnabled,
   ]);
 };

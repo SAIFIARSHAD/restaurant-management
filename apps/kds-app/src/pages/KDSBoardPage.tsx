@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search } from 'lucide-react';
+import { Search, Volume2, VolumeX } from 'lucide-react';
 import { useKDSSocket } from '../hooks/useKDSSocket';
 import {
   getCompletedOrders,
@@ -99,6 +99,10 @@ export default function KDSBoardPage() {
     isConnected,
     updateOrderStatus,
     updateItemStatus,
+    soundEnabled,
+    setSoundEnabled,
+    audioUnlocked,
+    setAudioUnlocked,
   } = useKDSStore();
 
   const [now, setNow] = useState(new Date());
@@ -275,39 +279,39 @@ export default function KDSBoardPage() {
     [filteredByDate]
   );
 
-const getElapsedMinutes = (order: IOrder) => {
-  const created = new Date(order.createdAt).getTime();
-  if (Number.isNaN(created)) return 0;
+  const getElapsedMinutes = (order: IOrder) => {
+    const created = new Date(order.createdAt).getTime();
+    if (Number.isNaN(created)) return 0;
 
-  const freezeStatuses: OrderStatus[] = ['ready', 'served', 'billed'];
+    const freezeStatuses: OrderStatus[] = ['ready', 'served', 'billed'];
 
-  if (freezeStatuses.includes(order.status)) {
-    const itemReadyTimes = order.items
-      .map((item) => item.readyAt)
-      .filter(Boolean)
-      .map((value) => new Date(value as string).getTime())
-      .filter((time) => !Number.isNaN(time));
+    if (freezeStatuses.includes(order.status)) {
+      const itemReadyTimes = order.items
+        .map((item) => item.readyAt)
+        .filter(Boolean)
+        .map((value) => new Date(value as string).getTime())
+        .filter((time) => !Number.isNaN(time));
 
-    if (itemReadyTimes.length > 0) {
-      const freezeAt = Math.max(...itemReadyTimes);
-      return Math.max(0, Math.floor((freezeAt - created) / 60000));
+      if (itemReadyTimes.length > 0) {
+        const freezeAt = Math.max(...itemReadyTimes);
+        return Math.max(0, Math.floor((freezeAt - created) / 60000));
+      }
     }
-  }
 
-  return Math.max(0, Math.floor((now.getTime() - created) / 60000));
-};
+    return Math.max(0, Math.floor((now.getTime() - created) / 60000));
+  };
 
-const getElapsedLabel = (status: OrderStatus) => {
-  if (status === 'pending' || status === 'accepted' || status === 'preparing') {
+  const getElapsedLabel = (status: OrderStatus) => {
+    if (status === 'pending' || status === 'accepted' || status === 'preparing') {
+      return 'Prep Time';
+    }
+
+    if (status === 'ready' || status === 'served' || status === 'billed') {
+      return 'Ready In';
+    }
+
     return 'Prep Time';
-  }
-
-  if (status === 'ready' || status === 'served' || status === 'billed') {
-    return 'Ready In';
-  }
-
-  return 'Prep Time';
-};
+  };
 
   const handleAdvanceOrder = async (order: IOrder, status: OrderStatus) => {
     try {
@@ -364,6 +368,38 @@ const getElapsedLabel = (status: OrderStatus) => {
     }
   };
 
+  const handleEnableAlerts = async () => {
+    try {
+      const audio = new Audio('/sounds/new-order.mp3');
+      audio.preload = 'auto';
+      audio.muted = true;
+
+      await audio.play();
+      audio.pause();
+      audio.currentTime = 0;
+      audio.muted = false;
+
+      setSoundEnabled(true);
+      setAudioUnlocked(true);
+    } catch (error) {
+      console.warn('Enable alerts failed:', error);
+    }
+  };
+
+  const handleToggleSound = async () => {
+    if (soundEnabled) {
+      setSoundEnabled(false);
+      return;
+    }
+
+    if (!audioUnlocked) {
+      await handleEnableAlerts();
+      return;
+    }
+
+    setSoundEnabled(true);
+  };
+
   const handleLogout = () => {
     localStorage.removeItem('kds_session');
     navigate('/login', { replace: true });
@@ -397,6 +433,29 @@ const getElapsedLabel = (status: OrderStatus) => {
 
   return (
     <div className="h-screen overflow-hidden bg-zinc-950 text-white">
+      {!audioUnlocked && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="mx-4 w-full max-w-md rounded-2xl border border-orange-500/20 bg-zinc-900 p-6 text-center shadow-2xl">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl border border-orange-500/25 bg-orange-500/10 text-2xl text-orange-400">
+              🔔
+            </div>
+
+            <h2 className="text-xl font-bold text-white">Enable order alerts</h2>
+
+            <p className="mt-2 text-sm leading-6 text-zinc-400">
+              Tap to enable sound alerts for new orders.
+            </p>
+
+            <button
+              onClick={handleEnableAlerts}
+              className="mt-5 inline-flex items-center justify-center rounded-xl bg-orange-500 px-5 py-3 text-sm font-semibold text-white transition hover:bg-orange-600"
+            >
+              Tap to enable alerts
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="flex h-screen flex-col">
         <header className="z-30 flex-none border-b border-zinc-800 bg-zinc-900">
           <div className="px-4 md:px-6 py-2.5">
@@ -451,6 +510,22 @@ const getElapsedLabel = (status: OrderStatus) => {
                 </div>
 
                 <button
+                  onClick={handleToggleSound}
+                  className={`hidden sm:inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                    soundEnabled
+                      ? 'border-orange-500/25 bg-orange-500/10 text-orange-400 hover:bg-orange-500/20'
+                      : 'border-zinc-700 bg-zinc-800 text-zinc-400 hover:bg-zinc-700'
+                  }`}
+                >
+                  {soundEnabled ? (
+                    <Volume2 className="h-3.5 w-3.5" />
+                  ) : (
+                    <VolumeX className="h-3.5 w-3.5" />
+                  )}
+                  {soundEnabled ? 'Sound On' : 'Enable Sound'}
+                </button>
+
+                <button
                   onClick={handleChangeStation}
                   className="rounded-full border border-orange-500/25 bg-orange-500/10 px-3 py-1.5 text-xs font-medium text-orange-400 transition hover:bg-orange-500/20"
                 >
@@ -475,6 +550,24 @@ const getElapsedLabel = (status: OrderStatus) => {
                   placeholder="Search order, table, items..."
                   className="w-full bg-transparent text-xs text-white placeholder:text-zinc-500 outline-none"
                 />
+              </div>
+
+              <div className="mt-2 flex sm:hidden">
+                <button
+                  onClick={handleToggleSound}
+                  className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                    soundEnabled
+                      ? 'border-orange-500/25 bg-orange-500/10 text-orange-400'
+                      : 'border-zinc-700 bg-zinc-800 text-zinc-400'
+                  }`}
+                >
+                  {soundEnabled ? (
+                    <Volume2 className="h-3.5 w-3.5" />
+                  ) : (
+                    <VolumeX className="h-3.5 w-3.5" />
+                  )}
+                  {soundEnabled ? 'Sound On' : 'Enable Sound'}
+                </button>
               </div>
             </div>
           </div>
@@ -613,14 +706,14 @@ const getElapsedLabel = (status: OrderStatus) => {
         </div>
 
         {selectedOrder && (
-        <KDSOrderDetailModal
-          order={selectedOrder}
-          onClose={() => setSelectedOrder(null)}
-          onAdvanceOrder={handleAdvanceOrder}
-          onCancelOrder={handleCancelOrder}
-          actionLoadingId={actionLoading}
-        />
-      )}
+          <KDSOrderDetailModal
+            order={selectedOrder}
+            onClose={() => setSelectedOrder(null)}
+            onAdvanceOrder={handleAdvanceOrder}
+            onCancelOrder={handleCancelOrder}
+            actionLoadingId={actionLoading}
+          />
+        )}
       </div>
     </div>
   );

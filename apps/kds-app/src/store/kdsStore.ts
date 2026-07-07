@@ -31,6 +31,12 @@ interface KDSStore {
 
   isConnected: boolean;
   setIsConnected: (val: boolean) => void;
+
+  soundEnabled: boolean;
+  setSoundEnabled: (val: boolean) => void;
+
+  audioUnlocked: boolean;
+  setAudioUnlocked: (val: boolean) => void;
 }
 
 const COMPLETED_STATUSES: OrderStatus[] = ['served', 'billed', 'cancelled'];
@@ -43,6 +49,7 @@ const dedupeOrders = (orders: IOrder[]) => {
   orders.forEach((order) => {
     map.set(order._id, order);
   });
+
   return Array.from(map.values()).sort(
     (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
   );
@@ -95,6 +102,7 @@ export const useKDSStore = create<KDSStore>((set) => ({
     set((state) => {
       const completed = dedupeOrders(orders);
       const completedIds = new Set(completed.map((o) => o._id));
+
       return {
         completedOrders: completed,
         orders: state.orders.filter((o) => !completedIds.has(o._id)),
@@ -110,6 +118,7 @@ export const useKDSStore = create<KDSStore>((set) => ({
           incoming,
           ...state.completedOrders.filter((o) => o._id !== incoming._id),
         ]);
+
         return {
           completedOrders: nextCompleted,
           orders: state.orders.filter((o) => o._id !== incoming._id),
@@ -199,4 +208,10 @@ export const useKDSStore = create<KDSStore>((set) => ({
 
   isConnected: false,
   setIsConnected: (val) => set({ isConnected: val }),
+
+  soundEnabled: true,
+  setSoundEnabled: (val) => set({ soundEnabled: val }),
+
+  audioUnlocked: false,
+  setAudioUnlocked: (val) => set({ audioUnlocked: val }),
 }));
