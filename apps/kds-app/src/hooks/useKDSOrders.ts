@@ -15,18 +15,20 @@ export const useKDSOrders = (stationType?: string) => {
 
   const fetchOrders = useCallback(async () => {
     try {
+      const params = station ? { station } : undefined;
+
       const [active, completed] = await Promise.all([
-        getKDSOrders(station),
-        getCompletedOrders(station),
+        getKDSOrders(params),
+        getCompletedOrders(params),
       ]);
+
       setOrders(active);
       setCompletedOrders(completed);
     } catch (err) {
       console.error('KDS orders fetch failed:', err);
     }
-  }, [station]);
+  }, [station, setOrders, setCompletedOrders]);
 
-  // Initial fetch + reconnect sync every 30s
   useEffect(() => {
     fetchOrders();
     const interval = setInterval(fetchOrders, 30_000);
